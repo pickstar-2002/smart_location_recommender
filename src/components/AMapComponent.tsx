@@ -3,8 +3,6 @@ import { useAppStore } from '@/stores/appStore';
 import { LocationPoint } from '@/types';
 import { MapStatusIndicator } from './MapStatusIndicator';
 import { getCurrentLocation, toAMapCoordinate, checkGeolocationPermission, getLocationByIP } from '@/utils/geolocation';
-import { testGeolocation } from '@/utils/geolocationTest';
-import { testIPLocation, testNetwork } from '@/utils/ipLocationTest';
 import { toast } from 'sonner';
 import { MapLegend } from './MapLegend';
 import { LocationInput } from './LocationInput';
@@ -154,14 +152,6 @@ export const AMapComponent = ({ className = '', onSettingsClick }: AMapComponent
     // 记录加载开始时间
     setLoadingStartTime(Date.now());
     const enableDiagnostics = false;
-    if (enableDiagnostics) {
-      testGeolocation().then(() => {});
-      testNetwork().then(ok => {
-        if (ok) {
-          testIPLocation().then(() => {});
-        }
-      });
-    }
 
     // 获取当前位置（多层备用方案）
     const getCurrentLocationAsync = async (): Promise<[number, number]> => {
