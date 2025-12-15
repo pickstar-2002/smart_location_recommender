@@ -10,6 +10,7 @@ import { AIReasonProgress } from './AIReasonProgress';
 import { backendAIService } from '@/services/backendAiService';
 import { amapService } from '@/services/amapService';
 import { ImagePreviewModal } from './ImagePreviewModal';
+import RecommendationProgress, { ProgressStep } from './RecommendationProgress';
 
 interface SearchPanelProps {
   className?: string;
@@ -19,17 +20,8 @@ interface SearchPanelProps {
 export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
   const { points, searchKeyword, setSearchKeyword, recommendations, setRecommendations, setLoading, selectRecommendation, selectedRecommendation } = useAppStore();
   const [isSearching, setIsSearching] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [errorSteps, setErrorSteps] = useState<number[]>([]);
-  const [stepDetails, setStepDetails] = useState<Record<number, string>>({});
-  const [stepLabels] = useState([
-    '正在解析搜索意图...',
-    '正在搜索周边位置...',
-    '正在分析地理位置...',
-    '正在计算最优路线...',
-    '正在生成AI综合推荐...',
-    '正在完成推荐...'
-  ]);
+  const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([]);
+  const [showProgress, setShowProgress] = useState(false);
   
   // 动态卡片插入状态
   const [displayedRecommendations, setDisplayedRecommendations] = useState<Recommendation[]>([]); // 当前显示的推荐结果
@@ -48,9 +40,8 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
   const [previewImages, setPreviewImages] = useState<string[] | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number>(0);
 
-  // 执行搜索 - 逐步执行每个步骤
+  // 执行搜索 - 使用新的进度展示
   const handleSearch = async () => {
-    
     if (points.length === 0) {
       toast.error('请先添加至少一个位置点');
       return;
@@ -63,7 +54,6 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
 
     // 检查API密钥
     const amapKey = localStorage.getItem('amap_api_key');
-    const modelscopeKey = localStorage.getItem('modelscope_api_key');
     
     if (!amapKey || amapKey === 'YOUR_AMAP_API_KEY') {
       // 使用默认的API密钥
@@ -71,149 +61,48 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
       localStorage.setItem('amap_api_key', defaultApiKey);
     }
 
-
     setIsSearching(true);
     setLoading(true);
-    setCurrentStep(0);
-    setErrorSteps([]);
-    setStepDetails({}); // 重置步骤详情
+    setShowProgress(true);
+    setDisplayedRecommendations([]);
+    setPendingRecommendations([]);
+    setRecommendations([]);
 
     try {
-      // 步骤1: 解析搜索意图
-      setCurrentStep(1);
-      await new Promise(resolve => setTimeout(resolve, 800));
-      console.log('🔍 正在解析搜索意图...');
-      const intent = await backendAIService.parseSearchIntent(searchKeyword.trim());
-      const parsedKeywords = intent?.keywords?.length ? intent.keywords : [searchKeyword.trim()];
-      console.log('✅ 搜索意图解析完成:', intent);
-      setStepDetails(prev => ({
-        ...prev,
-        0: `已解析：关键词 ${parsedKeywords.join(' / ')}${intent?.budget_max ? `，预算≤${intent.budget_max}` : ''}${intent?.min_rating ? `，评分≥${intent.min_rating}` : ''}${intent?.distance_km ? `，半径${intent.distance_km}km` : ''}`
-      }));
+      // 使用新的推荐服务，支持进度回调
+      const results = await recommendationService.getRecommendations(
+        points,
+        searchKeyword.trim(),
+        (steps, currentStep) => {
+          setProgressSteps([...steps]);
+        }
+      );
       
-      // 步骤2: 搜索周边地点
-      setCurrentStep(2);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 设置待处理列表并开始逐条生成推荐理由
+      setPendingRecommendations(results);
       
-      console.log('📍 正在搜索周边位置...');
-      const radiusMeters = intent?.distance_km ? Math.round(intent.distance_km * 1000) : undefined;
-      const searchResults = await recommendationService.searchNearbyPlaces(points, parsedKeywords, {
-        radiusMeters,
-        minRating: intent?.min_rating,
-        budgetMax: intent?.budget_max
-      });
-      console.log(`✅ 周边搜索完成: 找到 ${searchResults.length} 个候选地点`);
-      setStepDetails(prev => ({
-        ...prev,
-        1: `已找到 ${searchResults.length} 个候选地点`
-      }));
-      
-      // 步骤3: 分析地理位置
-      setCurrentStep(3);
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      console.log('🗺️ 正在分析地理位置...');
-      const analyzedResults = await recommendationService.analyzeLocations(searchResults, points);
-      console.log(`✅ 地理位置分析完成`);
-      setStepDetails(prev => ({
-        ...prev,
-        2: `已分析 ${analyzedResults.length} 个地点的地理位置`
-      }));
-      
-      // 步骤4: 计算路线信息
-      setCurrentStep(4);
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      
-      console.log('🚗 正在计算最优路线...');
-      const routeResults = await recommendationService.calculateRoutes(analyzedResults, points);
-      console.log(`✅ 路线计算完成`);
-      setStepDetails(prev => ({
-        ...prev,
-        3: `已计算多种交通方式的路线信息`
-      }));
-      
-      // 步骤5: 简化版位置分析（不使用AI）
-      setCurrentStep(5);
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      console.log('🔄 正在执行简化版位置分析...');
-      let finalResults;
-      try {
-        // 使用简化版位置分析（已移除AI调用）
-        finalResults = await recommendationService.aiRanking(routeResults, searchKeyword.trim());
-        console.log(`✅ 简化版位置分析完成`);
-        setStepDetails(prev => ({
-          ...prev,
-          4: `位置分析完成，基于距离和评分综合评估`
-        }));
-      } catch (analysisError) {
-        console.warn('⚠️ 位置分析失败');
-        setErrorSteps(prev => [...prev, 4]);
-        throw analysisError; // 直接抛出错误便于排查
-      }
-      
-      // 步骤6: 开始动态生成AI推荐理由（逐个生成并插入）
-      setCurrentStep(6);
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      console.log('🤖 开始动态生成AI推荐理由...');
-      setStepDetails(prev => ({
-        ...prev,
-        5: `正在调用AI生成个性化推荐理由...`
-      }));
-      
-      // 动态卡片插入：从0开始逐条添加
-      setDisplayedRecommendations([]); // 清空当前显示
-      setPendingRecommendations(finalResults); // 设置待处理列表
-      setRecommendations([]); // 清空存储的推荐结果
-      
-      // 开始逐条生成推荐理由并动态插入
-      if (finalResults.length > 0) {
+      if (results.length > 0) {
         // 设置AI推荐理由生成进度
         setAiReasonProgress({
           isGenerating: true,
           current: 0,
-          total: finalResults.length,
+          total: results.length,
           currentPlace: ''
         });
         
-        await processRecommendationsOneByOne(finalResults);
+        await processRecommendationsOneByOne(results);
       }
       
-      console.log(`✅ 所有AI推荐理由生成完成`);
-      setStepDetails(prev => ({
-        ...prev,
-        5: `AI推荐理由已生成，包含地点、地址、距离、时间、评价等完整信息`
-      }));
-      
-      // 延迟一下让用户看到完成状态
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      toast.success(`找到 ${finalResults.length} 个推荐地点`);
+      toast.success(`找到 ${results.length} 个推荐地点`);
       
     } catch (error) {
       console.error('搜索失败:', error);
       toast.error('搜索失败，请稍后重试');
-      
-      // 根据错误类型标记失败的步骤
-      if (error instanceof Error) {
-        if (error.message.includes('扩展') || error.message.includes('关键词')) {
-          setErrorSteps([0]); // 关键词扩展步骤失败
-        } else if (error.message.includes('搜索') || error.message.includes('周边')) {
-          setErrorSteps([1]); // 搜索步骤失败
-        } else if (error.message.includes('分析') || error.message.includes('地理')) {
-          setErrorSteps([2]); // 分析步骤失败
-        } else if (error.message.includes('路线') || error.message.includes('计算')) {
-          setErrorSteps([3]); // 路线计算步骤失败
-        } else if (error.message.includes('AI') || error.message.includes('推荐理由')) {
-          setErrorSteps([5]); // AI推荐理由生成步骤失败
-        } else {
-          setErrorSteps([1]); // 默认搜索步骤失败
-        }
-      }
     } finally {
       setIsSearching(false);
       setLoading(false);
+      // 延迟隐藏进度展示，让用户看到完成状态
+      setTimeout(() => setShowProgress(false), 2000);
     }
   };
 
@@ -301,17 +190,24 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
   ];
 
   return (
-    <div className={`bg-white rounded-lg shadow-md p-6 ${className}`}>
-      <StepLoader 
-        currentStep={currentStep}
-        totalSteps={stepLabels.length}
-        stepLabels={stepLabels}
-        errorSteps={errorSteps}
-        stepDetails={stepDetails}
-      />
+    <div className={`bg-white rounded-lg shadow-md p-4 sm:p-6 ${className}`}>
+      {/* 新的进度展示组件 */}
+      {showProgress && progressSteps.length > 0 && (
+        <div className="mb-4 sm:mb-6">
+          <RecommendationProgress 
+            steps={progressSteps}
+            currentStep={progressSteps.findIndex(step => step.status === 'running')}
+            onCancel={() => {
+              setIsSearching(false);
+              setLoading(false);
+              setShowProgress(false);
+            }}
+          />
+        </div>
+      )}
       
-      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-        <Search className="w-5 h-5 mr-2 text-blue-600" />
+      <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center">
+        <Search className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-600" />
         位置搜索
       </h3>
 
@@ -324,7 +220,7 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
       />
 
       {/* 搜索输入 */}
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <div className="flex flex-col sm:flex-row gap-2 mb-3">
           <input
             type="text"
@@ -337,7 +233,7 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
           <button
             onClick={handleSearch}
             disabled={isSearching || points.length === 0 || !searchKeyword.trim()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center text-sm whitespace-nowrap"
+            className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center text-sm whitespace-nowrap min-w-[80px]"
           >
             <Search className="w-4 h-4 mr-1" />
             {isSearching ? '搜索中...' : '搜索'}
@@ -345,7 +241,7 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
         </div>
         
         {/* AI模型选择器 */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           {/* 热门关键词 */}
           <div className="flex flex-wrap gap-1">
             <span className="text-xs text-gray-600 mr-1">示例：</span>
@@ -359,17 +255,16 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
               </button>
             ))}
           </div>
-        
         </div>
       </div>
 
       {/* 搜索结果 */}
       {displayedRecommendations.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="text-md font-medium text-gray-800 mb-3">
+        <div className="space-y-2 sm:space-y-3">
+          <h4 className="text-sm sm:text-md font-medium text-gray-800 mb-2 sm:mb-3">
             推荐结果 ({displayedRecommendations.length}/{pendingRecommendations.length})
             {aiReasonProgress.isGenerating && (
-              <span className="ml-2 text-sm text-blue-600 animate-pulse">
+              <span className="ml-2 text-xs sm:text-sm text-blue-600 animate-pulse">
                 • 正在生成中...
               </span>
             )}
@@ -378,7 +273,7 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
           {displayedRecommendations.map((recommendation, index) => (
             <div
               key={`${recommendation.poi.id}-${index}`}
-              className={`border rounded-lg p-3 hover:shadow-md transition-all cursor-pointer animate-card-insert ${
+              className={`border rounded-lg p-2 sm:p-3 hover:shadow-md transition-all cursor-pointer animate-card-insert ${
                 selectedRecommendation?.poi.id === recommendation.poi.id 
                   ? 'border-blue-500 bg-blue-50 shadow-md' 
                   : 'border-gray-200 hover:border-gray-300'
@@ -389,10 +284,10 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center mb-1">
-                    <span className="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-medium mr-2 flex-shrink-0">
+                    <span className="w-4 h-4 sm:w-5 sm:h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-medium mr-2 flex-shrink-0">
                       {index + 1}
                     </span>
-                    <h5 className="font-semibold text-gray-800 text-sm truncate">{recommendation.poi.name}</h5>
+                    <h5 className="font-semibold text-gray-800 text-xs sm:text-sm truncate">{recommendation.poi.name}</h5>
                   </div>
                   
                   <div className="text-xs text-gray-600 mb-1 truncate">
@@ -400,7 +295,7 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
                     {recommendation.poi.address}
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs text-gray-600 mb-1">
+                  <div className="flex items-center gap-2 sm:gap-3 text-xs text-gray-600 mb-1 flex-wrap">
                     {recommendation.poi.rating && (
                       <div className="flex items-center">
                         <StarRating score={recommendation.poi.rating * 20} size="sm" />
@@ -416,8 +311,8 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
                     </div>
                   </div>
 
-                  {/* 交通方式时间显示 - 简化版 */}
-                  <div className="flex items-center gap-3 text-xs text-gray-600 mb-2">
+                  {/* 交通方式时间显示 - 响应式 */}
+                  <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3 text-xs text-gray-600 mb-2">
                     <div className="flex items-center">
                       <span className="mr-1">🚗</span>
                       <span className="font-medium text-red-600">{recommendation.transportationTimes?.driving || 0}分钟</span>
@@ -441,19 +336,34 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
                   ) && (
                     <div className="space-y-1 text-xs text-gray-700">
                       {(recommendation.poi.phone || recommendation.poi.tel) && (
-                        <div>📞 电话：<span className="font-medium">{recommendation.poi.phone || recommendation.poi.tel}</span></div>
+                        <div className="flex items-start">
+                          <span className="mr-1">📞</span>
+                          <span className="font-medium">{recommendation.poi.phone || recommendation.poi.tel}</span>
+                        </div>
                       )}
                       {(recommendation.poi.pname || recommendation.poi.cityname || recommendation.poi.adname) && (
-                        <div>🏙️ 区域：<span className="font-medium">{[recommendation.poi.pname, recommendation.poi.cityname, recommendation.poi.adname].filter(Boolean).join(' · ')}</span></div>
+                        <div className="flex items-start">
+                          <span className="mr-1">🏙️</span>
+                          <span className="font-medium">{[recommendation.poi.pname, recommendation.poi.cityname, recommendation.poi.adname].filter(Boolean).join(' · ')}</span>
+                        </div>
                       )}
                       {recommendation.poi.cost && (
-                        <div>💰 人均：<span className="font-medium">{recommendation.poi.cost}</span></div>
+                        <div className="flex items-start">
+                          <span className="mr-1">💰</span>
+                          <span className="font-medium">{recommendation.poi.cost}</span>
+                        </div>
                       )}
                       {recommendation.poi.tags && recommendation.poi.tags.length > 0 && (
-                        <div>🏷️ 标签：<span className="font-medium">{recommendation.poi.tags.slice(0, 5).join('、')}</span></div>
+                        <div className="flex items-start">
+                          <span className="mr-1">🏷️</span>
+                          <span className="font-medium">{recommendation.poi.tags.slice(0, 3).join('、')}</span>
+                        </div>
                       )}
                       {typeof recommendation.averageReachableTime === 'number' && recommendation.averageReachableTime > 0 && (
-                        <div>⏱️ 平均可达：<span className="font-medium">{Math.round(recommendation.averageReachableTime)}分钟</span></div>
+                        <div className="flex items-start">
+                          <span className="mr-1">⏱️</span>
+                          <span className="font-medium">{Math.round(recommendation.averageReachableTime)}分钟</span>
+                        </div>
                       )}
                       {recommendation.poi.photos && recommendation.poi.photos.length > 0 && (
                         <div className="flex gap-2 mt-1">
@@ -462,7 +372,7 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
                               key={i}
                               src={url}
                               alt="photo"
-                              className="w-16 h-12 rounded border border-gray-200 object-cover cursor-zoom-in"
+                              className="w-12 h-9 sm:w-16 sm:h-12 rounded border border-gray-200 object-cover cursor-zoom-in"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setPreviewImages(recommendation.poi.photos);
@@ -476,37 +386,28 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
                     </div>
                   )}
 
-
-
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-600">推荐指数：</span>
-            <StarRating score={recommendation.totalScore} size="sm" />
-          </div>
+                  <div className="flex items-center space-x-2 mt-2">
+                    <span className="text-xs text-gray-600">推荐指数：</span>
+                    <StarRating score={recommendation.totalScore} size="sm" />
+                  </div>
                   
                   {/* AI综合推荐生成状态指示器 */}
-              {aiReasonProgress.isGenerating && !recommendation.combinedRecommendation && (
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                  <span className="text-xs text-blue-600">AI综合推荐生成中...</span>
-                </div>
-              )}
-
-              {false && recommendation.routeNarration && (
-                <div className="mt-2 p-3 bg-orange-50 rounded-lg text-xs text-gray-800 border border-orange-200">
-                  <div className="font-semibold text-orange-700 mb-1">🗺️ 路线解说</div>
-                  <div>{recommendation.routeNarration}</div>
-                </div>
-              )}
+                  {aiReasonProgress.isGenerating && !recommendation.combinedRecommendation && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                      <span className="text-xs text-blue-600">AI综合推荐生成中...</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {recommendation.combinedRecommendation && (
-                <div className="mt-2 p-3 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg text-sm text-gray-800 border border-blue-100 shadow-sm">
-                  <div className="flex items-center mb-2">
-                    <Shield className="w-4 h-4 text-green-600 mr-2" />
+                <div className="mt-2 p-2 sm:p-3 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg text-xs sm:text-sm text-gray-800 border border-blue-100 shadow-sm">
+                  <div className="flex items-center mb-1 sm:mb-2">
+                    <Shield className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 mr-2" />
                     <span className="font-semibold text-green-700">AI综合推荐</span>
                   </div>
-                  <div className="text-sm leading-relaxed">{recommendation.combinedRecommendation}</div>
+                  <div className="text-xs sm:text-sm leading-relaxed">{recommendation.combinedRecommendation}</div>
                 </div>
               )}
             </div>
@@ -514,10 +415,10 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
           
           {/* 底部加载指示器 */}
           {aiReasonProgress.isGenerating && (
-            <div className="text-center py-4 animate-pulse">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg text-blue-600">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                <span className="text-sm">正在生成第 {displayedRecommendations.length + 1} 个推荐...</span>
+            <div className="text-center py-3 sm:py-4 animate-pulse">
+              <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-blue-50 rounded-lg text-blue-600">
+                <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-blue-600"></div>
+                <span className="text-xs sm:text-sm">正在生成第 {displayedRecommendations.length + 1} 个推荐...</span>
               </div>
             </div>
           )}

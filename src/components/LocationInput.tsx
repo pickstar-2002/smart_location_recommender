@@ -387,22 +387,22 @@ export const LocationInput = ({ className = '' }: LocationInputProps) => {
   // 添加随机点（用于测试）
 
   return (
-    <div className="absolute top-4 left-4 z-[60] pointer-events-auto">
+    <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-[60] pointer-events-auto">
       {!collapsed ? (
-        <div className={`bg-white rounded-lg shadow-md border border-gray-200 p-4 w-80 sm:w-96 max-h-[75vh] overflow-y-auto ${className}`}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-              <MapPin className="w-5 h-5 mr-2 text-blue-600" />
+        <div className={`bg-white rounded-lg shadow-md border border-gray-200 p-3 sm:p-4 w-72 sm:w-96 max-h-[70vh] sm:max-h-[75vh] overflow-y-auto ${className}`}>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
+              <MapPin className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2 text-blue-600" />
               位置输入
             </h3>
-            <div className="flex items-center gap-2">
-              <div className="text-sm text-gray-500">{points.length}/10</div>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <div className="text-xs sm:text-sm text-gray-500">{points.length}/10</div>
               <button
                 onClick={() => setCollapsed(true)}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full"
+                className="p-1 sm:p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full"
                 title="最小化"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
               </button>
             </div>
           </div>
@@ -705,13 +705,13 @@ export const LocationInput = ({ className = '' }: LocationInputProps) => {
       ) : (
         <button
           onClick={() => setCollapsed(false)}
-          className="flex items-center gap-2 px-3 py-2 bg-white/90 backdrop-blur rounded-full shadow-md border border-gray-200 hover:shadow-lg transition-all"
+          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-white/90 backdrop-blur rounded-full shadow-md border border-gray-200 hover:shadow-lg transition-all"
           title="展开位置输入"
         >
-          <MapPin className="w-4 h-4 text-blue-600" />
-          <span className="text-sm text-gray-700">位置输入</span>
+          <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
+          <span className="text-xs sm:text-sm text-gray-700 hidden sm:inline">位置输入</span>
           <span className="text-xs text-gray-500">{points.length}/10</span>
-          <ChevronRight className="w-4 h-4 text-gray-500" />
+          <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
         </button>
       )}
     </div>

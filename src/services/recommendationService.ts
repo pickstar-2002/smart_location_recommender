@@ -2,57 +2,153 @@ import { LocationPoint, Recommendation, SearchResult } from '@/types';
 import { amapService } from './amapService';
 import { aiService } from './aiService';
 import { mcpServiceManager } from './mcpService';
+import { ProgressStep } from '@/components/RecommendationProgress';
 
 // 智能推荐服务
 export class RecommendationService {
-  // 主要推荐流程
+  // 主要推荐流程 - 支持进度回调
   async getRecommendations(
     points: LocationPoint[],
-    keyword: string
+    keyword: string,
+    onProgress?: (steps: ProgressStep[], currentStep: number) => void
   ): Promise<Recommendation[]> {
     if (points.length === 0) {
       throw new Error('至少需要输入一个位置点');
     }
 
+    const steps: ProgressStep[] = [
+      {
+        id: 'center',
+        title: '计算中心位置',
+        description: '正在分析您的位置分布...',
+        status: 'pending'
+      },
+      {
+        id: 'keywords',
+        title: '扩展搜索关键词',
+        description: '正在生成相关搜索词...',
+        status: 'pending'
+      },
+      {
+        id: 'search',
+        title: '搜索周边地点',
+        description: '正在搜寻候选地点...',
+        status: 'pending'
+      },
+      {
+        id: 'analyze',
+        title: '分析地理位置',
+        description: '正在评估地点适宜性...',
+        status: 'pending'
+      },
+      {
+        id: 'routes',
+        title: '计算交通路线',
+        description: '正在计算最优路线...',
+        status: 'pending'
+      },
+      {
+        id: 'ranking',
+        title: '智能排序推荐',
+        description: '正在生成最终推荐...',
+        status: 'pending'
+      }
+    ];
+
     try {
-      // 1. 计算中心点
+      // 步骤1: 计算中心点
+      steps[0].status = 'running';
+      if (onProgress) onProgress(steps, 0);
+      
       const centerPoint = amapService.calculateCenter(points);
+      steps[0].status = 'completed';
+      steps[0].details = [`中心位置: ${centerPoint.lat.toFixed(4)}, ${centerPoint.lng.toFixed(4)}`];
+      if (onProgress) onProgress(steps, 0);
       
-      // 2. 扩展关键词
+      // 步骤2: 扩展关键词
+      steps[1].status = 'running';
+      if (onProgress) onProgress(steps, 1);
+      
       const keywords = await aiService.expandKeyword(keyword);
+      steps[1].status = 'completed';
+      steps[1].details = [`扩展关键词: ${keywords.join(', ')}`];
+      if (onProgress) onProgress(steps, 1);
       
-      // 3. 搜索周边地点
+      // 步骤3: 搜索周边地点
+      steps[2].status = 'running';
+      if (onProgress) onProgress(steps, 2);
+      
       let allResults: SearchResult[] = [];
+      const searchDetails: string[] = [];
       
-      for (const kw of keywords.slice(0, 3)) { // 最多搜索3个关键词
+      for (let i = 0; i < keywords.slice(0, 3).length; i++) {
+        const kw = keywords[i];
+        steps[2].description = `正在搜索: ${kw} (${i + 1}/${keywords.slice(0, 3).length})`;
+        if (onProgress) onProgress(steps, 2);
+        
         const places = await amapService.searchAround(centerPoint, kw, 5000);
         const results = places.map(place => amapService.convertToSearchResult(place));
         allResults = [...allResults, ...results];
+        searchDetails.push(`${kw}: ${results.length}个结果`);
       }
       
-      // 去重
       const uniqueResults = this.deduplicateResults(allResults);
+      steps[2].status = 'completed';
+      steps[2].details = [`共找到 ${uniqueResults.length} 个候选地点`, ...searchDetails];
+      if (onProgress) onProgress(steps, 2);
       
-      // 4. 简化版位置分析和推荐（不使用AI）
-      console.log('🔄 开始简化版位置分析推荐...');
+      // 步骤4: 分析地理位置
+      steps[3].status = 'running';
+      if (onProgress) onProgress(steps, 3);
+      
       const simplifiedRecommendations = await aiService.analyzeAndRecommend(points, uniqueResults, keyword);
+      steps[3].status = 'completed';
+      steps[3].details = [`分析完成，筛选出 ${simplifiedRecommendations.length} 个推荐地点`];
+      if (onProgress) onProgress(steps, 3);
       
-      // 5. 计算路线信息
+      // 步骤5: 计算路线信息
+      steps[4].status = 'running';
+      steps[4].description = '正在计算各交通方式的时间...';
+      if (onProgress) onProgress(steps, 4);
+      
       const recommendationsWithRoutes = await this.addRouteInformation(
         simplifiedRecommendations,
-        points
+        points,
+        (progress) => {
+          steps[4].description = progress;
+          if (onProgress) onProgress(steps, 4);
+        }
       );
+      steps[4].status = 'completed';
+      steps[4].details = ['路线计算完成'];
+      if (onProgress) onProgress(steps, 4);
       
-      // 6. 生成AI推荐理由（仅保留这一个AI调用）
-      console.log('🤖 开始生成AI推荐理由...');
+      // 步骤6: 生成推荐理由
+      steps[5].status = 'running';
+      if (onProgress) onProgress(steps, 5);
+      
       const recommendationsWithReasons = await this.generateComprehensiveReasons(
         recommendationsWithRoutes,
-        keyword
+        keyword,
+        (progress) => {
+          steps[5].description = progress;
+          if (onProgress) onProgress(steps, 5);
+        }
       );
+      steps[5].status = 'completed';
+      steps[5].details = ['推荐完成'];
+      if (onProgress) onProgress(steps, 5);
       
       return recommendationsWithReasons;
     } catch (error) {
       console.error('推荐服务错误:', error);
+      // 更新错误步骤状态
+      const currentStepIndex = steps.findIndex(step => step.status === 'running');
+      if (currentStepIndex !== -1) {
+        steps[currentStepIndex].status = 'error';
+        steps[currentStepIndex].description = `错误: ${error.message}`;
+        if (onProgress) onProgress(steps, currentStepIndex);
+      }
       throw error;
     }
   }
@@ -210,176 +306,135 @@ export class RecommendationService {
     });
   }
 
-  // 添加路线信息
+  // 添加路线信息 - 支持进度回调
   private async addRouteInformation(
     recommendations: Recommendation[],
-    points: LocationPoint[]
+    points: LocationPoint[],
+    onProgress?: (message: string) => void
   ): Promise<Recommendation[]> {
-    const updatedRecommendations = await Promise.all(
-      recommendations.map(async (rec) => {
-        const routes: any[] = [];
-// 获取路线信息 - 按交通方式分别统计
-        const modeStats = {
-          driving: { totalTime: 0, totalDistance: 0, count: 0 },
-          walking: { totalTime: 0, totalDistance: 0, count: 0 },
-          transit: { totalTime: 0, totalDistance: 0, count: 0 },
-          cycling: { totalTime: 0, totalDistance: 0, count: 0 } // 骑行将通过估算添加
+    const updatedRecommendations = [];
+    
+    for (let i = 0; i < recommendations.length; i++) {
+      const rec = recommendations[i];
+      if (onProgress) {
+        onProgress(`正在计算路线: ${rec.poi.name} (${i + 1}/${recommendations.length})`);
+      }
+      
+      const routes: any[] = [];
+      const modeStats = {
+        driving: { totalTime: 0, totalDistance: 0, count: 0 },
+        walking: { totalTime: 0, totalDistance: 0, count: 0 },
+        transit: { totalTime: 0, totalDistance: 0, count: 0 },
+        cycling: { totalTime: 0, totalDistance: 0, count: 0 }
+      };
+
+      const pointDistances = [];
+      
+      for (const point of points) {
+        const drivingRoute = await amapService.getRoute(
+          point,
+          rec.poi.location,
+          'driving'
+        );
+
+        const walkingRoute = await amapService.getRoute(
+          point,
+          rec.poi.location,
+          'walking'
+        );
+
+        const transitRoute = await amapService.getRoute(
+          point,
+          rec.poi.location,
+          'transit'
+        );
+
+        const pointDistanceInfo = {
+          pointId: point.id,
+          pointName: point.name,
+          distance: this.calculateDistance(point, rec.poi.location),
+          drivingTime: undefined as number | undefined,
+          walkingTime: undefined as number | undefined,
+          transitTime: undefined as number | undefined,
+          cyclingTime: undefined as number | undefined
         };
 
-        // 为每个用户点计算路线
-        const pointDistances = []; // 存储每个位置点的距离和时间信息
-        
-        for (const point of points) {
-          console.log(`计算路线: 用户点(${point.name}) -> 推荐点(${rec.poi.name})`);
-          
-          const drivingRoute = await amapService.getRoute(
-            point,
-            rec.poi.location,
-            'driving'
-          );
-
-          const walkingRoute = await amapService.getRoute(
-            point,
-            rec.poi.location,
-            'walking'
-          );
-
-          const transitRoute = await amapService.getRoute(
-            point,
-            rec.poi.location,
-            'transit'
-          );
-
-          // 存储该位置点的距离和时间信息（确保四种方式都有时间数据）
-          const pointDistanceInfo = {
-            pointId: point.id,
-            pointName: point.name,
-            distance: this.calculateDistance(point, rec.poi.location), // 使用直线距离作为基础距离
-            drivingTime: undefined as number | undefined,
-            walkingTime: undefined as number | undefined,
-            transitTime: undefined as number | undefined,
-            cyclingTime: undefined as number | undefined // 新增骑行时间
-          };
-
-          // 处理驾车时间
-          if (drivingRoute) {
-            console.log(`驾驶路线结果: 距离=${drivingRoute.distance}米, 时间=${drivingRoute.duration}秒`);
-            routes.push(drivingRoute);
-            modeStats.driving.totalTime += drivingRoute.duration;
-            modeStats.driving.totalDistance += drivingRoute.distance;
-            modeStats.driving.count++;
-            
-            pointDistanceInfo.drivingTime = Math.round(drivingRoute.duration / 60);
-          } else {
-            // 如果API获取失败，使用估算
-            pointDistanceInfo.drivingTime = this._estimateTransportationTime(pointDistanceInfo.distance, 'driving');
-            console.log(`驾车时间估算: 距离${(pointDistanceInfo.distance/1000).toFixed(1)}km -> ${pointDistanceInfo.drivingTime}分钟`);
-          }
-
-          // 处理步行时间
-          if (walkingRoute) {
-            console.log(`步行路线结果: 距离=${walkingRoute.distance}米, 时间=${walkingRoute.duration}秒`);
-            routes.push(walkingRoute);
-            modeStats.walking.totalTime += walkingRoute.duration;
-            modeStats.walking.totalDistance += walkingRoute.distance;
-            modeStats.walking.count++;
-            
-            pointDistanceInfo.walkingTime = Math.round(walkingRoute.duration / 60);
-          } else {
-            // 如果API获取失败，使用估算
-            pointDistanceInfo.walkingTime = this._estimateTransportationTime(pointDistanceInfo.distance, 'walking');
-            console.log(`步行时间估算: 距离${(pointDistanceInfo.distance/1000).toFixed(1)}km -> ${pointDistanceInfo.walkingTime}分钟`);
-          }
-
-          // 处理公交时间
-          if (transitRoute) {
-            console.log(`公交路线结果: 距离=${transitRoute.distance}米, 时间=${transitRoute.duration}秒 (${transitRoute.duration/60}分钟)`);
-            routes.push(transitRoute);
-            modeStats.transit.totalTime += transitRoute.duration;
-            modeStats.transit.totalDistance += transitRoute.distance;
-            modeStats.transit.count++;
-            
-            pointDistanceInfo.transitTime = Math.round(transitRoute.duration / 60);
-          } else {
-            // 如果API获取失败，使用估算
-            pointDistanceInfo.transitTime = this._estimateTransportationTime(pointDistanceInfo.distance, 'transit');
-            console.log(`公交时间估算: 距离${(pointDistanceInfo.distance/1000).toFixed(1)}km -> ${pointDistanceInfo.transitTime}分钟`);
-          }
-
-          // 处理骑行时间（高德API不支持骑行规划，始终使用估算）
-          pointDistanceInfo.cyclingTime = this._estimateTransportationTime(pointDistanceInfo.distance, 'cycling');
-          console.log(`骑行时间估算: 距离${(pointDistanceInfo.distance/1000).toFixed(1)}km -> ${pointDistanceInfo.cyclingTime}分钟`);
-          
-          pointDistances.push(pointDistanceInfo);
+        if (drivingRoute) {
+          routes.push(drivingRoute);
+          modeStats.driving.totalTime += drivingRoute.duration;
+          modeStats.driving.totalDistance += drivingRoute.distance;
+          modeStats.driving.count++;
+          pointDistanceInfo.drivingTime = Math.round(drivingRoute.duration / 60);
+        } else {
+          pointDistanceInfo.drivingTime = this._estimateTransportationTime(pointDistanceInfo.distance, 'driving');
         }
 
-        // 计算各交通方式的平均时间
-        const transportationTimes = {
-          driving: modeStats.driving.count > 0 ? Math.round(modeStats.driving.totalTime / modeStats.driving.count / 60) : 0,
-          transit: modeStats.transit.count > 0 ? Math.round(modeStats.transit.totalTime / modeStats.transit.count / 60) : 0,
-          walking: modeStats.walking.count > 0 ? Math.round(modeStats.walking.totalTime / modeStats.walking.count / 60) : 0,
-          cycling: 0 // 将通过估算计算
-        };
-
-        // 如果某个交通方式没有数据，使用估算
-        const avgDistance = (modeStats.driving.totalDistance + modeStats.walking.totalDistance) / 
-                          Math.max(modeStats.driving.count + modeStats.walking.count, 1);
-        const avgDistanceKm = avgDistance / 1000;
-
-        if (transportationTimes.transit === 0 && avgDistanceKm > 0) {
-          // 估算公交时间（当没有公交数据时）
-          transportationTimes.transit = Math.round(avgDistanceKm / 18 * 60 + 8); // 18km/h + 8分钟等车换乘
-          console.log(`公交时间估算: ${avgDistanceKm.toFixed(1)}km -> ${transportationTimes.transit}分钟`);
+        if (walkingRoute) {
+          routes.push(walkingRoute);
+          modeStats.walking.totalTime += walkingRoute.duration;
+          modeStats.walking.totalDistance += walkingRoute.distance;
+          modeStats.walking.count++;
+          pointDistanceInfo.walkingTime = Math.round(walkingRoute.duration / 60);
+        } else {
+          pointDistanceInfo.walkingTime = this._estimateTransportationTime(pointDistanceInfo.distance, 'walking');
         }
 
-        // 估算骑行时间（假设平均速度为15km/h）
-        if (avgDistanceKm > 0) {
-          transportationTimes.cycling = Math.round(avgDistanceKm / 15 * 60); // 15km/h骑行速度
-          console.log(`骑行时间估算: ${avgDistanceKm.toFixed(1)}km -> ${transportationTimes.cycling}分钟`);
+        if (transitRoute) {
+          routes.push(transitRoute);
+          modeStats.transit.totalTime += transitRoute.duration;
+          modeStats.transit.totalDistance += transitRoute.distance;
+          modeStats.transit.count++;
+          pointDistanceInfo.transitTime = Math.round(transitRoute.duration / 60);
+        } else {
+          pointDistanceInfo.transitTime = this._estimateTransportationTime(pointDistanceInfo.distance, 'transit');
         }
 
-        // 计算总体平均时间（修复：优先考虑驾车时间，公交时间作为参考）
-        let averageTime = 0;
-        
-        if (transportationTimes.driving > 0) {
-          // 如果有驾车数据，优先使用驾车时间，稍微增加一点缓冲时间
-          averageTime = Math.round(transportationTimes.driving * 1.2); // 增加20%缓冲时间
-        } else if (transportationTimes.transit > 0) {
-          // 如果没有驾车数据，使用公交时间但减少权重（因为公交包含等车时间）
-          averageTime = Math.round(transportationTimes.transit * 0.7); // 减少30%（去除部分等车时间）
-        } else if (transportationTimes.cycling > 0) {
-          // 最后考虑骑行时间
-          averageTime = transportationTimes.cycling;
-        }
-        
-        // 合理性检查：如果时间异常（超过5小时），重新估算
-        if (averageTime > 300) { // 5小时 = 300分钟
-          console.warn(`计算的平均时间异常: ${averageTime}分钟，重新估算`);
-          const avgDistanceKm = (modeStats.driving.totalDistance + modeStats.walking.totalDistance) / 1000;
-          averageTime = Math.round(avgDistanceKm / 20 * 60); // 20km/h综合速度
-          console.log(`重新估算: 距离${avgDistanceKm.toFixed(1)}km, 估算时间${averageTime}分钟`);
-        }
-        
-        // 添加调试信息
-        console.log(`推荐地点 ${rec.poi.name} 的交通时间统计:`, {
-          transportationTimes,
-          modeStats: {
-            driving: { count: modeStats.driving.count, avgDistance: modeStats.driving.count > 0 ? (modeStats.driving.totalDistance / modeStats.driving.count / 1000).toFixed(1) + 'km' : 'N/A' },
-            transit: { count: modeStats.transit.count, avgDistance: modeStats.transit.count > 0 ? (modeStats.transit.totalDistance / modeStats.transit.count / 1000).toFixed(1) + 'km' : 'N/A' },
-            walking: { count: modeStats.walking.count, avgDistance: modeStats.walking.count > 0 ? (modeStats.walking.totalDistance / modeStats.walking.count / 1000).toFixed(1) + 'km' : 'N/A' }
-          },
-          averageTime: averageTime + '分钟'
-        });
+        pointDistanceInfo.cyclingTime = this._estimateTransportationTime(pointDistanceInfo.distance, 'cycling');
+        pointDistances.push(pointDistanceInfo);
+      }
 
-        return {
-          ...rec,
-          routes,
-          averageReachableTime: averageTime,
-          transportationTimes,
-          pointDistances // 添加每个位置点的距离和时间信息
-        };
-      })
-    );
+      const transportationTimes = {
+        driving: modeStats.driving.count > 0 ? Math.round(modeStats.driving.totalTime / modeStats.driving.count / 60) : 0,
+        transit: modeStats.transit.count > 0 ? Math.round(modeStats.transit.totalTime / modeStats.transit.count / 60) : 0,
+        walking: modeStats.walking.count > 0 ? Math.round(modeStats.walking.totalTime / modeStats.walking.count / 60) : 0,
+        cycling: 0
+      };
+
+      const avgDistance = (modeStats.driving.totalDistance + modeStats.walking.totalDistance) / 
+                        Math.max(modeStats.driving.count + modeStats.walking.count, 1);
+      const avgDistanceKm = avgDistance / 1000;
+
+      if (transportationTimes.transit === 0 && avgDistanceKm > 0) {
+        transportationTimes.transit = Math.round(avgDistanceKm / 18 * 60 + 8);
+      }
+
+      if (avgDistanceKm > 0) {
+        transportationTimes.cycling = Math.round(avgDistanceKm / 15 * 60);
+      }
+
+      let averageTime = 0;
+      
+      if (transportationTimes.driving > 0) {
+        averageTime = Math.round(transportationTimes.driving * 1.2);
+      } else if (transportationTimes.transit > 0) {
+        averageTime = Math.round(transportationTimes.transit * 0.7);
+      } else if (transportationTimes.cycling > 0) {
+        averageTime = transportationTimes.cycling;
+      }
+      
+      if (averageTime > 300) {
+        const avgDistanceKm = (modeStats.driving.totalDistance + modeStats.walking.totalDistance) / 1000;
+        averageTime = Math.round(avgDistanceKm / 20 * 60);
+      }
+
+      updatedRecommendations.push({
+        ...rec,
+        routes,
+        averageReachableTime: averageTime,
+        transportationTimes,
+        pointDistances
+      });
+    }
 
     return updatedRecommendations;
   }
@@ -537,21 +592,29 @@ export class RecommendationService {
     }
   }
 
-  // 生成综合推荐理由（逐个生成，避免并发请求）
-  async generateComprehensiveReasons(recommendations: Recommendation[], keyword: string): Promise<Recommendation[]> {
+  // 生成综合推荐理由（逐个生成，避免并发请求）- 支持进度回调
+  async generateComprehensiveReasons(
+    recommendations: Recommendation[], 
+    keyword: string,
+    onProgress?: (message: string) => void
+  ): Promise<Recommendation[]> {
     try {
-      console.log(`🤖 开始逐个生成AI推荐理由，共${recommendations.length}个...`);
+      if (onProgress) {
+        onProgress(`开始生成AI推荐理由，共${recommendations.length}个地点`);
+      }
+      
       const recommendationsWithReasons: Recommendation[] = [];
       
       // 逐个生成推荐理由，避免并发请求导致429错误
       for (let i = 0; i < recommendations.length; i++) {
         const rec = recommendations[i];
-        console.log(`📝 正在生成第${i + 1}个推荐理由: ${rec.poi.name}`);
+        if (onProgress) {
+          onProgress(`正在生成推荐理由: ${rec.poi.name} (${i + 1}/${recommendations.length})`);
+        }
         
         try {
           // 添加请求间隔，避免API限流
           if (i > 0) {
-            console.log(`⏱️ 等待1秒再继续...`);
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
           
@@ -561,8 +624,6 @@ export class RecommendationService {
             reason: comprehensiveReason
           });
           
-          console.log(`✅ 第${i + 1}个推荐理由生成完成，字数: ${comprehensiveReason.length}`);
-          
         } catch (error) {
           console.error(`❌ 第${i + 1}个推荐理由生成失败:`, error);
           // 即使某个推荐失败，也继续处理下一个
@@ -570,7 +631,10 @@ export class RecommendationService {
         }
       }
       
-      console.log(`✅ 所有推荐理由生成完成，成功: ${recommendationsWithReasons.filter(r => r.reason && r.reason !== '基础推荐').length}/${recommendations.length}`);
+      if (onProgress) {
+        onProgress(`推荐理由生成完成 (${recommendationsWithReasons.filter(r => r.reason && r.reason !== '基础推荐').length}/${recommendations.length})`);
+      }
+      
       return recommendationsWithReasons;
       
     } catch (error) {

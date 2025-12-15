@@ -719,7 +719,7 @@ export const AMapComponent = ({ className = '', onSettingsClick }: AMapComponent
   }, [selectedRecommendation]);
 
   return (
-    <div className={`w-full h-full ${className} relative`} style={{ minHeight: '500px' }}>
+    <div className={`w-full h-full ${className} relative`} style={{ minHeight: '300px' }}>
       <MapStatusIndicator onSettingsClick={onSettingsClick || (() => {})} />
       <div 
         ref={mapRef} 
@@ -736,16 +736,16 @@ export const AMapComponent = ({ className = '', onSettingsClick }: AMapComponent
       
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-          <div className="text-center px-6">
-            <div className="text-2xl mb-3">🗺️</div>
-            <h3 className="text-base font-medium text-gray-700 mb-2">地图加载中...</h3>
-            <div className="text-sm text-blue-600 mb-3">{locationStatus}</div>
+          <div className="text-center px-4 sm:px-6">
+            <div className="text-xl sm:text-2xl mb-2 sm:mb-3">🗺️</div>
+            <h3 className="text-sm sm:text-base font-medium text-gray-700 mb-1 sm:mb-2">地图加载中...</h3>
+            <div className="text-xs sm:text-sm text-blue-600 mb-2 sm:mb-3">{locationStatus}</div>
             
             {/* 简单加载动画 */}
-            <div className="flex items-center justify-center space-x-2 mb-4">
-              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="flex items-center justify-center space-x-1 sm:space-x-2 mb-3 sm:mb-4">
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
             
             {/* 简要帮助信息 */}

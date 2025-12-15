@@ -37,22 +37,28 @@ function App() {
     <div className="min-h-screen bg-gray-100">
       <Header onApiKeyClick={() => setShowApiKeyModal(true)} onShowOnboarding={handleShowOnboarding} />
       
-      {/* 全屏大屏布局 - 移除max-width限制和padding */}
-      <div className="w-full">
-        {/* 第一行：地图占满全宽，高度自适应屏幕 */}
-        <div className="w-full mb-0">
-          <div className="bg-white shadow-md overflow-hidden" style={{ height: 'calc(100vh - 200px)', minHeight: '500px' }}>
-            <AMapComponent onSettingsClick={() => setShowApiKeyModal(true)} />
+      {/* 响应式布局容器 */}
+      <div className="w-full h-[calc(100vh-4rem)]">
+        {/* 移动端：上下布局，桌面端：左右布局 */}
+        <div className="flex flex-col lg:flex-row h-full">
+          {/* 地图区域 */}
+          <div className="flex-1 relative order-1 lg:order-1 min-h-[300px] lg:min-h-0">
+            <div className="h-full w-full bg-white shadow-md overflow-hidden">
+              <AMapComponent onSettingsClick={() => setShowApiKeyModal(true)} />
+            </div>
           </div>
-        </div>
-        
-        {/* 第二行：控制面板，全宽背景 */}
-        <div className="w-full bg-gray-50 border-t border-gray-200">
-          <div className="px-4 sm:px-6 lg:px-8 py-6">
-            <div className="grid grid-cols-1 xl:grid-cols-1 gap-8">
-              {/* 位置搜索控制面板 */}
-              <div className="col-span-1">
-                <SearchPanel />
+          
+          {/* 控制面板区域 */}
+          <div className="w-full lg:w-96 xl:w-[28rem] bg-white border-l-0 lg:border-l border-gray-200 shadow-lg order-2 lg:order-2 max-h-[50vh] lg:max-h-none">
+            <div className="h-full flex flex-col">
+              {/* 位置输入区域 */}
+              <div className="p-3 sm:p-4 border-b border-gray-200">
+                <LocationInput />
+              </div>
+              
+              {/* 搜索面板区域 - 可滚动 */}
+              <div className="flex-1 overflow-y-auto">
+                <SearchPanel className="shadow-none border-0" />
               </div>
             </div>
           </div>
