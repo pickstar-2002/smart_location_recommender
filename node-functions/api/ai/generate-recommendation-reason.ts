@@ -52,7 +52,8 @@ export default async function handler(req: Request, res: Response) {
   }
 
   try {
-    const { recommendation, keyword, model = 'qwen' } = req.body;
+    const body = typeof (req as any).body === 'string' ? JSON.parse((req as any).body) : ((req as any).body || {});
+    const { recommendation, keyword, model = 'qwen' } = body;
 
     if (!recommendation || !keyword) {
       return res.status(400).json({

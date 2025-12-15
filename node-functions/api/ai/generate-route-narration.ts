@@ -44,7 +44,8 @@ export default async function handler(req: Request, res: Response) {
   }
 
   try {
-    const { recommendation, originName, weather, model = 'qwen' } = req.body;
+    const body = typeof (req as any).body === 'string' ? JSON.parse((req as any).body) : ((req as any).body || {});
+    const { recommendation, originName, weather, model = 'qwen' } = body;
     if (!recommendation || !originName) {
       return res.status(400).json({ success: false, error: '缺少必要参数：recommendation 与 originName' });
     }

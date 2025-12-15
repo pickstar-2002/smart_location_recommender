@@ -44,7 +44,8 @@ export default async function handler(req: Request, res: Response) {
   }
 
   try {
-    const { input, model = 'qwen' } = req.body;
+    const body = typeof (req as any).body === 'string' ? JSON.parse((req as any).body) : ((req as any).body || {});
+    const { input, model = 'qwen' } = body;
     if (!input || typeof input !== 'string') {
       return res.status(400).json({ success: false, error: '缺少必要参数：input' });
     }
