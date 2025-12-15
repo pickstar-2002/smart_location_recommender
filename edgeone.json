@@ -2,5 +2,8 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": "./dist",
-  "nodeVersion": "22.11.0"
+  "nodeVersion": "22.11.0",
+  "functions": {
+    "directory": "node-functions"
+  }
 }

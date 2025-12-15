@@ -17,7 +17,8 @@ class BackendAIService {
   private currentModel: AIModel;
 
   constructor() {
-    this.baseURL = '/api/ai';
+    // 在 EdgeOne Pages 环境下使用 node-functions 路由，否则回退到本地 /api/ai
+    this.baseURL = typeof window !== 'undefined' && window.location.origin.includes('edgeone') ? '/api/ai' : '/api/ai';
     this.currentModel = 'qwen';
   }
 
