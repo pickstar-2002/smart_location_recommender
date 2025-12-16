@@ -1,12 +1,13 @@
 # 智能位置推荐器
 
-![License](https://img.shields.io/badge/License-MIT-green.svg) ![Node](https://img.shields.io/badge/node-%3E%3D18.0-blue) ![React](https://img.shields.io/badge/react-18.3-blue?logo=react) ![Vite](https://img.shields.io/badge/vite-6.x-646CFF?logo=vite) ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?logo=typescript) ![Deploy](https://img.shields.io/badge/deploy-EdgeOne%20Pages-orange)
+![License](https://img.shields.io/badge/License-MIT-green.svg) ![Node](https://img.shields.io/badge/node-%3E%3D18.0-blue) ![React](https://img.shields.io/badge/react-18.3-blue?logo=react) ![Vite](https://img.shields.io/badge/vite-6.x-646CFF?logo=vite) ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?logo=typescript) 
 
 智能位置推荐应用，基于高德地图 API 与 AI 模型，为多人场景提供更公平、更高效的聚会地点选择与出行建议。
 
 ## 简介
 
 通过输入多个位置点与关键词，系统会进行周边检索、地理分析与路线计算，并结合评分与营业信息生成 Top 推荐，支持动态生成个性化推荐理由与路线解说。适用于朋友聚会、家庭用餐、团队活动、商务会面等场景。
+![alt text](image/介绍图.png)
 
 ## 功能
 
@@ -114,6 +115,19 @@ npm run preview
 
 类型定义参考：`src/types/index.ts`
 
+## 地图交互
+
+- 定位到我：地图左下角图例上方提供“定位到我”按钮，点击将镜头移动到当前位置，并显示详细地址（支持 Loading 与防重复点击）
+- 当前位置标点：鼠标悬浮或点击“我的位置”标点，弹窗展示反查地址与坐标信息
+- 推荐标点：按序号标记（绿色），点击显示名称、地址、评分与路线摘要
+
+## 移动端适配
+
+- iPhone/Android：按钮触控面积统一 ≥ 44px；卡片文字在小屏保持可读（`text-xs`/`text-sm`）
+- iPad：保持两栏布局可收起；在竖屏下优先使用收起入口以提升地图可用面积
+- 输入与键盘：地址输入在获得焦点时滚动至可见区域，建议使用系统返回键关闭
+- 安全区：顶栏与浮层靠边处预留安全区，避免贴边遮挡（适配状态栏/刘海）
+
 ## 开发配置
 
 - Vite 开发代理：`vite.config.ts` 中将 `/api` 代理到 `http://localhost:3001`，并开启基本日志输出
@@ -151,3 +165,4 @@ MIT License © 2025 pickstar-2002（详见 `LICENSE` 文件）
 - 搜索热词后台生成并展示 6 条，支持刷新按钮；扩展搜索词移至进度面板展示，避免页面重复
 - 推荐卡片先展示地点，推荐理由后台生成并淡入插入；“生成更多”严格尾部追加并去重，最多 20 条
 - 地图就绪判断加固，避免在未初始化或销毁后调用 `setCenter / setZoom`
+ - 地图图例上方新增“定位到我”按钮；“我的位置”标点悬浮/点击显示详细地址

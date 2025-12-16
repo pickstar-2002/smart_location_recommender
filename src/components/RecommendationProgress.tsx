@@ -112,14 +112,7 @@ const RecommendationProgress: React.FC<RecommendationProgressProps> = ({
         ))}
       </div>
 
-      <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg">
-        <div className="flex items-center">
-          <Brain className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mr-2 flex-shrink-0" />
-          <p className="text-xs sm:text-sm text-blue-700">
-            正在为您分析最优推荐方案，请稍候...
-          </p>
-        </div>
-      </div>
+      
     </div>
   );
 };

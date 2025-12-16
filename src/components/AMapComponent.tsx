@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Crosshair } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { LocationPoint } from '@/types';
 import { MapStatusIndicator } from './MapStatusIndicator';
@@ -23,6 +24,7 @@ export const AMapComponent = ({ className = '', onSettingsClick }: AMapComponent
   const routeAnimRef = useRef<{ marker: any | null; polyline: any | null; timer: any | null }>({ marker: null, polyline: null, timer: null });
   const [isLoading, setIsLoading] = useState(true);
   const [mapReady, setMapReady] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [loadingStartTime, setLoadingStartTime] = useState<number>(0);
   const [locationStatus, setLocationStatus] = useState<string>('正在获取位置...');
   const [routeStatus, setRouteStatus] = useState<{ show: boolean; origin?: string; dest?: string }>({ show: false });
@@ -369,12 +371,17 @@ export const AMapComponent = ({ className = '', onSettingsClick }: AMapComponent
                 });
             
             let hoverInfoWindow3: any = null;
-            currentLocationMarker.on('click', () => {
+            currentLocationMarker.on('click', async () => {
               if (!window.AMap.InfoWindow) return;
+              let addr = '';
+              try {
+                addr = await amapService.reverseGeocode(centerLocation[1], centerLocation[0]) || '';
+              } catch {}
               const infoWindow = new window.AMap.InfoWindow({
                 content: `
-                  <div style="padding: 10px; min-width: 220px;">
+                  <div style="padding: 10px; min-width: 240px;">
                     <h3 style="margin: 0 0 6px 0; color: #1d4999;">您的当前位置</h3>
+                    ${addr ? `<p style="margin: 4px 0;">📍 ${addr}</p>` : ''}
                     <p style="margin: 4px 0; font-size: 11px; color: #666;">(${centerLocation[0].toFixed(6)}, ${centerLocation[1].toFixed(6)})</p>
                   </div>
                 `,
@@ -383,13 +390,18 @@ export const AMapComponent = ({ className = '', onSettingsClick }: AMapComponent
               infoWindow.open(mapInstance.current, currentLocationMarker.getPosition());
             });
 
-            currentLocationMarker.on('mouseover', () => {
+            currentLocationMarker.on('mouseover', async () => {
               currentLocationMarker.setTop(true);
               if (!window.AMap.InfoWindow) return;
+              let addr = '';
+              try {
+                addr = await amapService.reverseGeocode(centerLocation[1], centerLocation[0]) || '';
+              } catch {}
               hoverInfoWindow3 = new window.AMap.InfoWindow({
                 content: `
-                  <div style="padding: 10px; min-width: 200px;">
+                  <div style="padding: 10px; min-width: 220px;">
                     <h3 style="margin: 0 0 6px 0; color: #1d4999;">您的当前位置</h3>
+                    ${addr ? `<p style="margin: 4px 0;">📍 ${addr}</p>` : ''}
                   </div>
                 `,
                 offset: new window.AMap.Pixel(0, -32)
@@ -471,6 +483,65 @@ export const AMapComponent = ({ className = '', onSettingsClick }: AMapComponent
       }
     }
   }, [mapConfig, mapReady]);
+
+  // 点击“定位到我” - 将镜头移动到用户当前位置
+  const handleLocateMe = async () => {
+    if (isLocating) return;
+    try {
+      setIsLocating(true);
+      setLocationStatus('正在获取您的当前位置...');
+      const loc = await getCurrentLocation();
+      const coords = toAMapCoordinate(loc);
+      setCurrentLocation(coords);
+      if (mapInstance.current?.setCenter) {
+        mapInstance.current.setCenter(coords);
+      }
+      if (mapInstance.current?.setZoom) {
+        mapInstance.current.setZoom(16);
+      }
+      // 反查地址并更新信息窗口交互
+      let addr = '';
+      try {
+        addr = await amapService.reverseGeocode(coords[1], coords[0]) || '';
+      } catch {}
+      const existing = markersRef.current.get('current_location');
+      if (existing && existing.setPosition) {
+        existing.setPosition(coords);
+        existing.setTitle(addr || '我的位置');
+      } else if (window.AMap?.Marker) {
+        const marker = new window.AMap.Marker({ position: coords, title: addr || '我的位置' });
+        marker.setMap(mapInstance.current);
+        // 悬浮与点击显示地址
+        let hoverWin: any = null;
+        marker.on('mouseover', () => {
+          if (!window.AMap.InfoWindow) return;
+          hoverWin = new window.AMap.InfoWindow({
+            content: `<div style="padding:10px; min-width:220px;"><h3 style="margin:0 0 6px 0; color:#1d4999;">我的位置</h3>${addr ? `<p style=\"margin:4px 0;\">📍 ${addr}</p>` : ''}</div>`,
+            offset: new window.AMap.Pixel(0, -32)
+          });
+          hoverWin.open(mapInstance.current, marker.getPosition());
+        });
+        marker.on('mouseout', () => {
+          if (hoverWin) { hoverWin.close(); hoverWin = null; }
+        });
+        marker.on('click', () => {
+          if (!window.AMap.InfoWindow) return;
+          const infoWin = new window.AMap.InfoWindow({
+            content: `<div style="padding:10px; min-width:240px;"><h3 style="margin:0 0 6px 0; color:#1d4999;">我的位置</h3>${addr ? `<p style=\"margin:4px 0;\">📍 ${addr}</p>` : ''}<p style="margin:4px 0; font-size:11px; color:#666;">(${coords[0].toFixed(6)}, ${coords[1].toFixed(6)})</p></div>`,
+            offset: new window.AMap.Pixel(0, -32)
+          });
+          infoWin.open(mapInstance.current, marker.getPosition());
+        });
+        markersRef.current.set('current_location', marker);
+      }
+      toast.success('已定位到您的当前位置');
+    } catch (err) {
+      toast.error('定位失败，请稍后重试');
+    } finally {
+      setIsLocating(false);
+      setLocationStatus('');
+    }
+  };
 
   // 更新标记点
   useEffect(() => {
@@ -740,13 +811,12 @@ export const AMapComponent = ({ className = '', onSettingsClick }: AMapComponent
         className="w-full h-full"
       />
       
-      {/* 地图图例 */}
-      {!isLoading && <MapLegend />}
+      {/* 地图图例与定位按钮（按钮在图例上方） */}
+      {!isLoading && <MapLegend onLocateMe={handleLocateMe} isLocating={isLocating} />}
 
       {/* 地图左侧浮动位置输入 */}
       {!isLoading && <LocationInput />}
 
-      
       
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100">

@@ -42,6 +42,7 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
 
   const [previewImages, setPreviewImages] = useState<string[] | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number>(0);
+  
 
   const fetchHotKeywords = async () => {
     try {
@@ -382,7 +383,7 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
           {displayedRecommendations.map((recommendation, index) => (
             <div
               key={`${recommendation.poi.id}-${index}`}
-              className={`border rounded-lg p-2 sm:p-3 hover:shadow-md transition-all cursor-pointer animate-card-insert ${
+              className={`border rounded-lg p-2 sm:p-3 hover:shadow-md transition-all cursor-pointer animate-card-insert overflow-hidden ${
                 selectedRecommendation?.poi.id === recommendation.poi.id 
                   ? 'border-blue-500 bg-blue-50 shadow-md' 
                   : 'border-gray-200 hover:border-gray-300'
@@ -420,25 +421,7 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
                     </div>
                   </div>
 
-                  {/* 交通方式时间显示 - 响应式 */}
-                  <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3 text-xs text-gray-600 mb-2">
-                    <div className="flex items-center">
-                      <span className="mr-1">🚗</span>
-                      <span className="font-medium text-red-600">{recommendation.transportationTimes?.driving || 0}分钟</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="mr-1">🚌</span>
-                      <span className="font-medium text-blue-600">{recommendation.transportationTimes?.transit || 0}分钟</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="mr-1">🚴</span>
-                      <span className="font-medium text-green-600">{recommendation.transportationTimes?.cycling || 0}分钟</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="mr-1">🚶</span>
-                      <span className="font-medium text-orange-600">{recommendation.transportationTimes?.walking || 0}分钟</span>
-                    </div>
-                  </div>
+                  
 
                   {(
                     recommendation.poi.phone || recommendation.poi.tel || recommendation.poi.tags?.length || recommendation.poi.cost || recommendation.poi.pname || recommendation.poi.cityname || recommendation.poi.adname || recommendation.averageReachableTime || (recommendation.poi.photos && recommendation.poi.photos.length)
@@ -468,12 +451,7 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
                           <span className="font-medium">{recommendation.poi.tags.slice(0, 3).join('、')}</span>
                         </div>
                       )}
-                      {typeof recommendation.averageReachableTime === 'number' && recommendation.averageReachableTime > 0 && (
-                        <div className="flex items-start">
-                          <span className="mr-1">⏱️</span>
-                          <span className="font-medium">{Math.round(recommendation.averageReachableTime)}分钟</span>
-                        </div>
-                      )}
+                      
                       {recommendation.poi.photos && recommendation.poi.photos.length > 0 && (
                         <div className="flex gap-2 mt-1">
                           {recommendation.poi.photos.slice(0, 2).map((url, i) => (
@@ -495,10 +473,45 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
                     </div>
                   )}
 
-                  <div className="flex items-center space-x-2 mt-2">
-                    <span className="text-xs text-gray-600">推荐指数：</span>
-                    <StarRating score={recommendation.totalScore} size="sm" />
-                  </div>
+                  
+                  {recommendation.pointDistances && recommendation.pointDistances.length > 0 && (
+                    <div className="mt-2 p-2 sm:p-3 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg text-xs sm:text-sm text-gray-800 border border-blue-100 shadow-sm max-h-32 overflow-y-auto">
+                      <div className="flex items-center mb-1 sm:mb-2">
+                        <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 mr-2" />
+                        <span className="font-semibold text-blue-700">位置点距离与时间</span>
+                      </div>
+                      <div className="pr-1 transition-opacity duration-300 opacity-100 break-words">
+                        {recommendation.pointDistances.map((pd) => (
+                          <div key={pd.pointId} className="flex items-center flex-wrap gap-2 text-xs text-gray-700 mb-1">
+                            <span className="inline-flex items-center text-gray-700">
+                              <MapPin className="w-3 h-3 mr-1" />
+                              {pd.pointName || '位置点'}
+                            </span>
+                            <span className="inline-flex items-center">
+                              <span className="mr-1">📏</span>
+                              <span className="font-medium text-blue-600">{(pd.distance / 1000).toFixed(1)}km</span>
+                            </span>
+                            <span className="inline-flex items-center">
+                              <span className="mr-1">🚗</span>
+                              <span className="font-medium text-red-600">{pd.drivingTime ?? 0}分钟</span>
+                            </span>
+                            <span className="inline-flex items-center">
+                              <span className="mr-1">🚌</span>
+                              <span className="font-medium text-blue-600">{pd.transitTime ?? 0}分钟</span>
+                            </span>
+                            <span className="inline-flex items-center">
+                              <span className="mr-1">🚴</span>
+                              <span className="font-medium text-green-600">{pd.cyclingTime ?? 0}分钟</span>
+                            </span>
+                            <span className="inline-flex items-center">
+                              <span className="mr-1">🚶</span>
+                              <span className="font-medium text-orange-600">{pd.walkingTime ?? 0}分钟</span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   
                   {/* AI综合推荐生成状态指示器 */}
                   {!recommendation.combinedRecommendation && (
@@ -511,12 +524,14 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
               </div>
 
               {recommendation.combinedRecommendation && (
-                <div className="mt-2 p-2 sm:p-3 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg text-xs sm:text-sm text-gray-800 border border-blue-100 shadow-sm">
+                <div className="mt-2 p-2 sm:p-3 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg text-xs sm:text-sm text-gray-800 border border-blue-100 shadow-sm max-h-32 overflow-y-auto">
                   <div className="flex items-center mb-1 sm:mb-2">
                     <Shield className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 mr-2" />
                     <span className="font-semibold text-green-700">AI综合推荐</span>
                   </div>
-                  <div className="text-xs sm:text-sm leading-relaxed break-words max-h-28 overflow-y-auto pr-1 transition-opacity duration-300 opacity-100">{recommendation.combinedRecommendation}</div>
+                  <div className="text-xs sm:text-sm leading-relaxed break-words pr-1 transition-opacity duration-300 opacity-100">
+                    {recommendation.combinedRecommendation}
+                  </div>
                 </div>
               )}
             </div>
