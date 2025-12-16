@@ -45,17 +45,18 @@ function App() {
           <div className="flex-1 relative order-1 lg:order-1 min-h-[300px] lg:min-h-0">
             <div className="h-full w-full bg-white shadow-md overflow-hidden">
               <AMapComponent onSettingsClick={() => setShowApiKeyModal(true)} />
+              {/* 位置输入组件 - 浮动在地图左上角 */}
+              <div className="absolute top-0 left-0 z-50 pointer-events-none">
+                <div className="pointer-events-auto">
+                  <LocationInput />
+                </div>
+              </div>
             </div>
           </div>
           
           {/* 控制面板区域 */}
           <div className="w-full lg:w-96 xl:w-[28rem] bg-white border-l-0 lg:border-l border-gray-200 shadow-lg order-2 lg:order-2 max-h-[50vh] lg:max-h-none">
             <div className="h-full flex flex-col">
-              {/* 位置输入区域 */}
-              <div className="p-3 sm:p-4 border-b border-gray-200">
-                <LocationInput />
-              </div>
-              
               {/* 搜索面板区域 - 可滚动 */}
               <div className="flex-1 overflow-y-auto">
                 <SearchPanel className="shadow-none border-0" />

@@ -383,329 +383,336 @@ export const LocationInput = ({ className = '' }: LocationInputProps) => {
     }
   };
 
-  // 通过经纬度添加点
-  // 添加随机点（用于测试）
-
   return (
-    <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-[60] pointer-events-auto">
+    <div className="relative z-[60] pointer-events-auto">
       {!collapsed ? (
-        <div className={`bg-white rounded-lg shadow-md border border-gray-200 p-3 sm:p-4 w-72 sm:w-96 max-h-[70vh] sm:max-h-[75vh] overflow-y-auto ${className}`}>
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
-              <MapPin className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2 text-blue-600" />
-              位置输入
-            </h3>
-            <div className="flex items-center gap-1 sm:gap-2">
-              <div className="text-xs sm:text-sm text-gray-500">{points.length}/10</div>
+        <div className={`bg-white rounded-lg shadow-md border border-gray-200 p-3 sm:p-4 w-80 sm:w-96 max-h-[70vh] sm:max-h-[75vh] overflow-y-auto ${className}`}>
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
+            <div className="flex items-center">
+              <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mr-2 flex-shrink-0" />
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">位置输入</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs sm:text-sm text-gray-500 font-medium">{points.length}/10</span>
               <button
                 onClick={() => setCollapsed(true)}
-                className="p-1 sm:p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full"
+                className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
                 title="最小化"
               >
-                <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" />
+                <ChevronLeft className="w-4 h-4" />
               </button>
             </div>
           </div>
-      
 
-      {/* 地址输入 */}
-      <form onSubmit={handleAddressSubmit} className="mb-4 relative">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="flex-1 relative">
-            <input
-              ref={inputRef}
-              type="text"
-              value={addressInput}
-              onChange={(e) => handleAddressInputChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onFocus={handleInputFocus}
-              onClick={handleInputClick}
-              placeholder={isLocationLoading ? "正在获取当前位置..." : "输入地址（如：北京市朝阳区三里屯）"}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              disabled={isLoading || isLocationLoading}
-            />
-            
-            {/* 地址建议下拉列表 */}
-            {showSuggestions && (
-              <div 
-                ref={suggestionsRef}
-                className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto"
-              >
-                {/* 搜索中状态 */}
-                {isSearching && (
-                  <div className="px-3 py-3 text-center text-gray-500">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                      搜索中...
-                    </div>
-                  </div>
-                )}
+          {/* 地址输入 */}
+          <div className="mb-4 sm:mb-6">
+            <form onSubmit={handleAddressSubmit} className="relative">
+              <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                <div className="flex-1 relative">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={addressInput}
+                    onChange={(e) => handleAddressInputChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onFocus={handleInputFocus}
+                    onClick={handleInputClick}
+                    placeholder={isLocationLoading ? "正在获取当前位置..." : "输入地址（如：北京市朝阳区三里屯）"}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    disabled={isLoading || isLocationLoading}
+                  />
                 
-                {/* 无结果状态 */}
-                {!isSearching && suggestions.length === 0 && addressInput.length >= 2 && (
-                  <div className="px-3 py-3 text-center text-gray-500">
-                    未找到相关地址，请尝试其他关键词
-                  </div>
-                )}
-                
-                {/* 建议列表 */}
-                {!isSearching && suggestions.length > 0 && (
-                  <>
-                    {suggestions.map((suggestion, index) => (
-                      <div
-                        key={index}
-                        className={`px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
-                          selectedSuggestionIndex === index ? 'bg-blue-50 border-blue-200' : ''
-                        }`}
-                        onClick={() => handleSelectSuggestion(suggestion)}
-                        onMouseEnter={() => setSelectedSuggestionIndex(index)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2">
-                              <div className="text-sm font-medium text-gray-900 truncate">
-                                {suggestion.name}
-                              </div>
-                              {suggestion.distance !== undefined && (
-                                suggestion.distance < 500 ? (
-                                  <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full font-medium">
-                                    很近
-                                  </span>
-                                ) : suggestion.distance < 1000 ? (
-                                  <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
-                                    附近
-                                  </span>
-                                ) : suggestion.distance < 2000 ? (
-                                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">
-                                    较近
-                                  </span>
-                                ) : null
-                              )}
-                            </div>
-                            {suggestion.address && (
-                              <div className="text-xs text-gray-500 truncate mt-1">
-                                {suggestion.address}
-                              </div>
-                            )}
+                  {/* 地址建议下拉列表 */}
+                  {showSuggestions && (
+                    <div 
+                      ref={suggestionsRef}
+                      className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto"
+                    >
+                      {/* 搜索中状态 */}
+                      {isSearching && (
+                        <div className="px-3 py-3 text-center text-gray-500">
+                          <div className="flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                            搜索中...
                           </div>
-                          {suggestion.distance !== undefined && (
-                            <div className="ml-3 text-xs font-bold whitespace-nowrap">
-                              {suggestion.distance < 500 ? (
-                                <span className="text-green-600">{Math.round(suggestion.distance)}m</span>
-                              ) : suggestion.distance < 1000 ? (
-                                <span className="text-blue-600">{Math.round(suggestion.distance)}m</span>
-                              ) : suggestion.distance < 2000 ? (
-                                <span className="text-yellow-600">{(suggestion.distance / 1000).toFixed(1)}km</span>
-                              ) : (
-                                <span className="text-gray-600">{(suggestion.distance / 1000).toFixed(1)}km</span>
-                              )}
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    ))}
-                  </>
+                      )}
+                      
+                      {/* 无结果状态 */}
+                      {!isSearching && suggestions.length === 0 && addressInput.length >= 2 && (
+                        <div className="px-3 py-3 text-center text-gray-500">
+                          未找到相关地址，请尝试其他关键词
+                        </div>
+                      )}
+                      
+                      {/* 建议列表 */}
+                      {!isSearching && suggestions.length > 0 && (
+                        <>
+                          {suggestions.map((suggestion, index) => (
+                            <div
+                              key={index}
+                              className={`px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
+                                selectedSuggestionIndex === index ? 'bg-blue-50 border-blue-200' : ''
+                              }`}
+                              onClick={() => handleSelectSuggestion(suggestion)}
+                              onMouseEnter={() => setSelectedSuggestionIndex(index)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="text-sm font-medium text-gray-900 truncate">
+                                      {suggestion.name}
+                                    </div>
+                                    {suggestion.distance !== undefined && (
+                                      suggestion.distance < 500 ? (
+                                        <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+                                          很近
+                                        </span>
+                                      ) : suggestion.distance < 1000 ? (
+                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                                          附近
+                                        </span>
+                                      ) : suggestion.distance < 2000 ? (
+                                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">
+                                          较近
+                                        </span>
+                                      ) : null
+                                    )}
+                                  </div>
+                                  {suggestion.address && (
+                                    <div className="text-xs text-gray-500 truncate mt-1">
+                                      {suggestion.address}
+                                    </div>
+                                  )}
+                                </div>
+                                {suggestion.distance !== undefined && (
+                                  <div className="ml-3 text-xs font-bold whitespace-nowrap">
+                                    {suggestion.distance < 500 ? (
+                                      <span className="text-green-600">{Math.round(suggestion.distance)}m</span>
+                                    ) : suggestion.distance < 1000 ? (
+                                      <span className="text-blue-600">{Math.round(suggestion.distance)}m</span>
+                                    ) : suggestion.distance < 2000 ? (
+                                      <span className="text-yellow-600">{(suggestion.distance / 1000).toFixed(1)}km</span>
+                                    ) : (
+                                      <span className="text-gray-600">{(suggestion.distance / 1000).toFixed(1)}km</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  disabled={isLoading || !addressInput.trim() || isLocationLoading}
+                  className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center text-sm whitespace-nowrap min-w-[80px]"
+                >
+                  <Search className="w-4 h-4 mr-1" />
+                  {isLoading ? '解析中...' : '搜索'}
+                </button>
+              </div>
+            
+              {/* 位置状态提示 */}
+              <div className="flex flex-wrap gap-1 mb-3">
+                <span className="text-xs text-gray-600 mr-1">提示：</span>
+                {isLocationLoading && (
+                  <span className="text-xs text-blue-600 flex items-center">
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-1"></div>
+                    正在获取当前位置...
+                  </span>
                 )}
+                {currentLocation && !isLocationLoading && (
+                  <span className="text-xs text-green-600 flex items-center">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                    已获取当前位置
+                  </span>
+                )}
+                {addressInput.length > 0 && addressInput.length < 2 && !isSearching && (
+                  <span className="text-xs text-orange-600 flex items-center">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full mr-1"></div>
+                    继续输入（至少2个字符）
+                  </span>
+                )}
+              </div>
+            </form>
+          </div>
+
+          {/* 快速添加按钮组 */}
+          <div className="flex flex-wrap gap-2 mb-4 sm:mb-6">
+            <button
+              onClick={handleAddCurrentLocation}
+              disabled={isLocationLoading || points.length >= 10}
+              className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center text-sm whitespace-nowrap transition-colors"
+            >
+              {isLocationLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                  定位中...
+                </>
+              ) : (
+                <>
+                  <Crosshair className="w-3 h-3 mr-1" />
+                  添加当前位置
+                </>
+              )}
+            </button>
+            
+            {currentLocation && !isLocationLoading && (
+              <div className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md text-sm flex items-center">
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                已定位
               </div>
             )}
           </div>
-          <button
-            type="submit"
-            disabled={isLoading || !addressInput.trim() || isLocationLoading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center text-sm whitespace-nowrap"
-          >
-            <Search className="w-4 h-4 mr-1" />
-            {isLoading ? '解析中...' : '搜索'}
-          </button>
-        </div>
-        
-        {/* 位置状态提示 */}
-        {isLocationLoading && (
-          <div className="mt-2 text-xs text-gray-500 flex items-center">
-            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
-            正在获取当前位置以优化搜索结果...
-          </div>
-        )}
-        {currentLocation && !isLocationLoading && (
-          <div className="mt-2 text-xs text-green-600 flex items-center">
-            <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-            已获取当前位置，搜索结果已优化
-          </div>
-        )}
-        {addressInput.length > 0 && addressInput.length < 2 && !isSearching && (
-          <div className="mt-2 text-xs text-orange-600 flex items-center">
-            <div className="w-2 h-2 bg-orange-500 rounded-full mr-2"></div>
-            继续输入以获取地址建议（至少2个字符）
-          </div>
-        )}
-      </form>
-
-      {/* 快速添加按钮组 */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <button
-          onClick={handleAddCurrentLocation}
-          disabled={isLocationLoading || points.length >= 10}
-          className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center text-sm whitespace-nowrap transition-colors"
-        >
-          {isLocationLoading ? (
-            <>
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
-              定位中...
-            </>
-          ) : (
-            <>
-              <Crosshair className="w-3 h-3 mr-1" />
-              添加当前位置
-            </>
-          )}
-        </button>
-        
-        {currentLocation && !isLocationLoading && (
-          <div className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md text-sm flex items-center">
-            <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-            已定位
-          </div>
-        )}
-      </div>
-
-      {/* 位置点列表 */}
-      {points.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
-            <MapPin className="w-4 h-4 mr-2" />
-            已添加的位置点：
-          </h4>
-          {points.map((point, index) => (
-            <div key={point.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3 flex-1">
-                  {/* 序号标识 */}
-                  <div className="flex-shrink-0">
-                    <span className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
-                      {index + 1}
-                    </span>
-                  </div>
-                  
-                  {/* 详细信息 */}
-                  <div className="flex-1 min-w-0">
-                    {/* 位置名称 */}
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h5 className="font-semibold text-gray-900 text-sm">
-                        {point.name}
-                      </h5>
-                      {point.name === '我的位置' && (
-                        <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
-                          当前位置
-                        </span>
-                      )}
-                    </div>
-                    
-                    {/* 详细地址 */}
-                    {point.address ? (
-                      <div className="mb-2">
-                        <div className="text-sm text-gray-700 font-medium mb-1">
-                          🏠 {point.address}
-                        </div>
-                        <div className="text-xs text-gray-500 font-mono">
-                          📍 坐标: {point.lng.toFixed(6)}, {point.lat.toFixed(6)}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mb-2">
-                        <div className="text-xs text-gray-500 font-mono mb-1">
-                          📍 坐标: {point.lng.toFixed(6)}, {point.lat.toFixed(6)}
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          🏠 地址信息获取中...
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* 添加方式和时间 */}
-                    <div className="flex items-center space-x-4 text-xs text-gray-500">
-                      <span className="flex items-center">
-                        ⏰ {point.createdAt ? formatTime(point.createdAt) : '--:--'}
-                      </span>
-                      <span className="flex items-center">
-                        📝 {
-                          point.source === 'address' ? '地址搜索' :
-                          point.source === 'coordinate' ? '坐标输入' :
-                          point.source === 'random' ? '随机位置' :
-                          point.source === 'current' ? '当前位置' :
-                          point.source === 'map' ? '地图点击' : '未知来源'
-                        }
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* 操作按钮 */}
-                <div className="flex space-x-1 ml-3">
-                  <button
-                    onClick={() => {
-                      // 定位到该位置
-                      centerOnPoint(point);
-                      console.log(`定位到位置: ${point.name} (${point.lng}, ${point.lat})`);
-                    }}
-                    className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                    title="定位到该位置"
-                  >
-                    <MapPin className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleCopyCoordinates(point.lng, point.lat, point.id);
-                    }}
-                    className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded transition-colors"
-                    title="复制坐标"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => removePoint(point.id)}
-                    className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-                    title="删除位置点"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {points.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          <MapPin className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-          <p>还没有添加任何位置点</p>
-          <p className="text-sm mt-1">可以通过以下方式添加：</p>
-          <ul className="text-sm mt-2 space-y-1">
-            <li>• 在地图上点击</li>
-            <li>• 输入地址搜索</li>
-          </ul>
-        </div>
-      )}
       
-      {/* 复制提示 - 轻量级div提示 */}
-      {copyNotification.show && (
-        <div className="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 z-50"
-             style={{
-               animation: 'copyNotification 0.3s ease-out'
-             }}>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          <span className="text-sm font-medium">{copyNotification.message}</span>
-        </div>
-      )}
+
+          {/* 位置点列表 */}
+          {points.length > 0 && (
+            <div className="space-y-2 sm:space-y-3">
+              <h4 className="text-sm sm:text-md font-medium text-gray-800 mb-2 sm:mb-3 flex items-center">
+                <MapPin className="w-4 h-4 mr-2" />
+                已添加的位置点 ({points.length}/10)
+              </h4>
+              {points.map((point, index) => (
+                <div 
+                  key={point.id} 
+                  className={`border rounded-lg p-2 sm:p-3 hover:shadow-md transition-all cursor-pointer ${
+                    'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-3 flex-1">
+                      {/* 序号标识 */}
+                      <div className="flex-shrink-0">
+                        <span className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs sm:text-sm font-bold">
+                          {index + 1}
+                        </span>
+                      </div>
+                      
+                      {/* 详细信息 */}
+                      <div className="flex-1 min-w-0">
+                        {/* 位置名称 */}
+                        <div className="flex items-center mb-1">
+                          <h5 className="font-semibold text-gray-800 text-xs sm:text-sm truncate">
+                            {point.name}
+                          </h5>
+                          {point.name === '我的位置' && (
+                            <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+                              当前位置
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* 详细地址 */}
+                        {point.address ? (
+                          <div className="mb-1">
+                            <div className="text-xs text-gray-600 mb-1">
+                              📍 {point.address}
+                            </div>
+                            <div className="text-xs text-gray-500 font-mono">
+                              坐标: {point.lng.toFixed(6)}, {point.lat.toFixed(6)}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mb-1">
+                            <div className="text-xs text-gray-500 font-mono mb-1">
+                              📍 坐标: {point.lng.toFixed(6)}, {point.lat.toFixed(6)}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              🏠 地址信息获取中...
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* 添加方式和时间 */}
+                        <div className="flex items-center gap-2 sm:gap-3 text-xs text-gray-500 flex-wrap">
+                          <span className="flex items-center">
+                            ⏰ {point.createdAt ? formatTime(point.createdAt) : '--:--'}
+                          </span>
+                          <span className="flex items-center">
+                            📝 {
+                              point.source === 'address' ? '地址搜索' :
+                              point.source === 'coordinate' ? '坐标输入' :
+                              point.source === 'random' ? '随机位置' :
+                              point.source === 'current' ? '当前位置' :
+                              point.source === 'map' ? '地图点击' : '未知来源'
+                            }
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* 操作按钮 */}
+                    <div className="flex space-x-1 ml-2 sm:ml-3">
+                      <button
+                        onClick={() => {
+                          // 定位到该位置
+                          centerOnPoint(point);
+                          console.log(`定位到位置: ${point.name} (${point.lng}, ${point.lat})`);
+                        }}
+                        className="p-1.5 sm:p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                        title="定位到该位置"
+                      >
+                        <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleCopyCoordinates(point.lng, point.lat, point.id);
+                        }}
+                        className="p-1.5 sm:p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded transition-colors"
+                        title="复制坐标"
+                      >
+                        <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => removePoint(point.id)}
+                        className="p-1.5 sm:p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                        title="删除位置点"
+                      >
+                        <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {points.length === 0 && (
+            <div className="text-center py-6 sm:py-8 text-gray-500">
+              <MapPin className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 text-gray-300" />
+              <p className="text-sm sm:text-base">还没有添加任何位置点</p>
+              <p className="text-xs sm:text-sm mt-1">可以通过以下方式添加：</p>
+              <ul className="text-xs sm:text-sm mt-2 space-y-1">
+                <li>• 在地图上点击</li>
+                <li>• 输入地址搜索</li>
+              </ul>
+            </div>
+          )}
+          
+          {/* 复制提示 - 轻量级div提示 */}
+          {copyNotification.show && (
+            <div className="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 z-50"
+                 style={{
+                   animation: 'copyNotification 0.3s ease-out'
+                 }}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-sm font-medium">{copyNotification.message}</span>
+            </div>
+          )}
         </div>
       ) : (
         <button
           onClick={() => setCollapsed(false)}
-          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-white/90 backdrop-blur rounded-full shadow-md border border-gray-200 hover:shadow-lg transition-all"
+          className="absolute top-2 right-2 sm:top-4 sm:right-4 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-white/90 backdrop-blur rounded-full shadow-md border border-gray-200 hover:shadow-lg transition-all"
           title="展开位置输入"
         >
           <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
