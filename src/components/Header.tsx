@@ -1,4 +1,4 @@
-import { Settings, Map, Search, X, Sun, Cloud, CloudRain, CloudSnow, Wind, Droplets, Thermometer, MapPin, HelpCircle } from 'lucide-react';
+import { Settings, Search, X, Sun, Cloud, CloudRain, CloudSnow, Wind, Droplets, Thermometer, MapPin, HelpCircle } from 'lucide-react';
 import { AIModelSelector } from './AIModelSelector';
 import { backendAIService } from '@/services/backendAiService';
 import { useEffect, useState } from 'react';
@@ -56,7 +56,7 @@ export const Header = ({ onApiKeyClick, onShowOnboarding }: HeaderProps) => {
           <div className="flex items-center min-w-0">
             <div className="flex-shrink-0">
               <h1 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center">
-                <Map className="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-blue-600" />
+                <img src="/favicon.png" alt="map" className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
                 <span className="hidden sm:inline">智能位置推荐助手</span>
                 <span className="sm:hidden">位置推荐</span>
               </h1>
@@ -140,7 +140,7 @@ export const Header = ({ onApiKeyClick, onShowOnboarding }: HeaderProps) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="font-semibold text-gray-800 mb-3 flex items-center text-sm sm:text-base">
-                  <Map className="w-5 h-5 mr-2 text-blue-600" />
+                  <img src="/favicon.png" alt="map" className="w-5 h-5 mr-2" />
                   添加位置点
                 </h3>
                 <ul className="text-sm text-gray-600 space-y-2">

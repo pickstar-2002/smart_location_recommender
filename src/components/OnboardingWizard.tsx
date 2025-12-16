@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Map, Search, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Info } from 'lucide-react';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
@@ -66,7 +66,7 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="font-semibold text-gray-800 mb-3 flex items-center text-sm sm:text-base">
-                <Map className="w-5 h-5 mr-2 text-blue-600" />
+                <img src="/favicon.png" alt="map" className="w-5 h-5 mr-2" />
                 添加位置点
               </h3>
               <ul className="text-sm text-gray-600 space-y-2">
