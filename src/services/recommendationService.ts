@@ -3,6 +3,7 @@ import { amapService } from './amapService';
 import { aiService } from './aiService';
 import { mcpServiceManager } from './mcpService';
 import { ProgressStep } from '@/components/RecommendationProgress';
+import { backendAIService } from './backendAiService';
 
 // 智能推荐服务
 export class RecommendationService {
@@ -65,36 +66,50 @@ export class RecommendationService {
       steps[0].details = [`中心位置: ${centerPoint.lat.toFixed(4)}, ${centerPoint.lng.toFixed(4)}`];
       if (onProgress) onProgress(steps, 0);
       
-      // 步骤2: 扩展关键词
+      // 步骤2: 解析用户意图并扩展关键词
       steps[1].status = 'running';
       if (onProgress) onProgress(steps, 1);
-      
-      const keywords = await aiService.expandKeyword(keyword);
+
+      const intent = await backendAIService.parseSearchIntent(keyword);
+      const original = keyword.trim();
+      const baseKeywords = [original, ...((intent?.keywords ?? []) as string[])];
+      const expanded = await aiService.expandKeyword(original);
+      // 去重并保持原始关键词优先
+      const keywordsSet = new Set<string>();
+      const keywords: string[] = [];
+      for (const kw of [...baseKeywords, ...expanded]) {
+        const k = kw.trim();
+        if (!k) continue;
+        if (!keywordsSet.has(k)) {
+          keywordsSet.add(k);
+          keywords.push(k);
+        }
+      }
+      const constraints: string[] = [];
+      if (typeof intent?.distance_km === 'number') constraints.push(`距离≤${intent!.distance_km}km`);
+      if (typeof intent?.budget_max === 'number') constraints.push(`人均≤${intent!.budget_max}`);
+      if (typeof intent?.min_rating === 'number') constraints.push(`评分≥${intent!.min_rating}`);
+      if (typeof intent?.group_size === 'number') constraints.push(`人数=${intent!.group_size}人`);
       steps[1].status = 'completed';
-      steps[1].details = [`扩展关键词: ${keywords.join(', ')}`];
+      steps[1].description = `扩展搜索词：${keywords.join('、')}`;
+      steps[1].details = [
+        `扩展关键词: ${keywords.join(', ')}`,
+        constraints.length ? `约束条件: ${constraints.join('，')}` : '约束条件: 无'
+      ];
       if (onProgress) onProgress(steps, 1);
       
       // 步骤3: 搜索周边地点
       steps[2].status = 'running';
       if (onProgress) onProgress(steps, 2);
       
-      let allResults: SearchResult[] = [];
-      const searchDetails: string[] = [];
-      
-      for (let i = 0; i < keywords.slice(0, 3).length; i++) {
-        const kw = keywords[i];
-        steps[2].description = `正在搜索: ${kw} (${i + 1}/${keywords.slice(0, 3).length})`;
-        if (onProgress) onProgress(steps, 2);
-        
-        const places = await amapService.searchAround(centerPoint, kw, 5000);
-        const results = places.map(place => amapService.convertToSearchResult(place));
-        allResults = [...allResults, ...results];
-        searchDetails.push(`${kw}: ${results.length}个结果`);
-      }
-      
-      const uniqueResults = this.deduplicateResults(allResults);
+      const radius = typeof intent?.distance_km === 'number' ? Math.round(intent!.distance_km! * 1000) : 5000;
+      const uniqueResults = await this.searchNearbyPlaces(points, keywords, {
+        radiusMeters: radius,
+        minRating: typeof intent?.min_rating === 'number' ? intent!.min_rating! : undefined,
+        budgetMax: typeof intent?.budget_max === 'number' ? intent!.budget_max! : undefined
+      });
       steps[2].status = 'completed';
-      steps[2].details = [`共找到 ${uniqueResults.length} 个候选地点`, ...searchDetails];
+      steps[2].details = [`共找到 ${uniqueResults.length} 个候选地点（已按约束筛选）`];
       if (onProgress) onProgress(steps, 2);
       
       // 步骤4: 分析地理位置
@@ -123,23 +138,18 @@ export class RecommendationService {
       steps[4].details = ['路线计算完成'];
       if (onProgress) onProgress(steps, 4);
       
-      // 步骤6: 生成推荐理由
+      // 步骤6: 智能排序推荐（不在此阶段生成推荐理由）
       steps[5].status = 'running';
+      steps[5].description = '正在智能排序...';
       if (onProgress) onProgress(steps, 5);
-      
-      const recommendationsWithReasons = await this.generateComprehensiveReasons(
-        recommendationsWithRoutes,
-        keyword,
-        (progress) => {
-          steps[5].description = progress;
-          if (onProgress) onProgress(steps, 5);
-        }
-      );
+
+      const finalRecommendations = this.fallbackRanking(recommendationsWithRoutes, keyword);
+
       steps[5].status = 'completed';
-      steps[5].details = ['推荐完成'];
+      steps[5].details = ['排序完成'];
       if (onProgress) onProgress(steps, 5);
-      
-      return recommendationsWithReasons;
+
+      return finalRecommendations;
     } catch (error) {
       console.error('推荐服务错误:', error);
       // 更新错误步骤状态
@@ -151,6 +161,100 @@ export class RecommendationService {
       }
       throw error;
     }
+  }
+
+  // 生成更多推荐：避免重复，扩展关键词与搜索范围，返回限定数量
+  async getMoreRecommendations(
+    points: LocationPoint[],
+    keyword: string,
+    exclude: { ids?: string[]; names?: string[] },
+    limit: number = 5,
+    onProgress?: (steps: ProgressStep[], currentStep: number) => void
+  ): Promise<Recommendation[]> {
+    const steps: ProgressStep[] = [
+      { id: 'keywords', title: '扩展搜索关键词', description: '正在生成相关搜索词...', status: 'pending' },
+      { id: 'search', title: '搜索周边地点', description: '正在搜寻候选地点...', status: 'pending' },
+      { id: 'analyze', title: '分析地理位置', description: '正在评估地点适宜性...', status: 'pending' },
+      { id: 'routes', title: '计算交通路线', description: '正在计算最优路线...', status: 'pending' },
+      { id: 'ranking', title: '智能排序推荐', description: '正在智能排序...', status: 'pending' }
+    ];
+
+    const excludeIds = new Set((exclude?.ids || []).filter(Boolean));
+    const excludeNames = new Set((exclude?.names || []).filter(Boolean).map(s => s.trim()));
+
+    // 扩展关键词，尽量使用不同于首次的部分
+    steps[0].status = 'running';
+    if (onProgress) onProgress(steps, 0);
+    const intent = await backendAIService.parseSearchIntent(keyword).catch(() => null);
+    const original = keyword.trim();
+    const baseKeywords = [original, ...((intent?.keywords ?? []) as string[])];
+    const expanded = await aiService.expandKeyword(original).catch(() => []);
+    const set = new Set<string>();
+    const allKeywords: string[] = [];
+    for (const k of [...baseKeywords, ...expanded]) {
+      const t = k.trim();
+      if (!t) continue;
+      if (!set.has(t)) {
+        set.add(t);
+        allKeywords.push(t);
+      }
+    }
+    // 取后半段作为“更多”的搜索词，如果不足则仍使用全部
+    const sliceStart = Math.floor(allKeywords.length / 2);
+    const moreKeywords = allKeywords.slice(sliceStart).length > 0 ? allKeywords.slice(sliceStart) : allKeywords;
+    steps[0].status = 'completed';
+    steps[0].description = `扩展搜索词：${moreKeywords.join('、')}`;
+    steps[0].details = [`扩展关键词: ${moreKeywords.join(', ')}`];
+    if (onProgress) onProgress(steps, 0);
+
+    // 搜索与筛选（扩大半径）
+    steps[1].status = 'running';
+    if (onProgress) onProgress(steps, 1);
+    const baseRadius = typeof intent?.distance_km === 'number' ? Math.round(intent!.distance_km! * 1000) : 5000;
+    const radius = Math.round(baseRadius * 1.3);
+    const uniqueResults = await this.searchNearbyPlaces(points, moreKeywords, {
+      radiusMeters: radius,
+      minRating: typeof intent?.min_rating === 'number' ? intent!.min_rating! : undefined,
+      budgetMax: typeof intent?.budget_max === 'number' ? intent!.budget_max! : undefined
+    });
+    // 去重（ID与名称+地址）
+    const filtered = uniqueResults.filter(r => {
+      if (excludeIds.has(r.id)) return false;
+      const key = `${r.name}|${r.address}`.trim();
+      if (excludeNames.has(key)) return false;
+      return true;
+    });
+    steps[1].status = 'completed';
+    steps[1].details = [`候选地点（筛重后）: ${filtered.length} 个`];
+    if (onProgress) onProgress(steps, 1);
+
+    // 分析与路线
+    steps[2].status = 'running';
+    if (onProgress) onProgress(steps, 2);
+    const simplified = await aiService.analyzeAndRecommend(points, filtered, keyword);
+    steps[2].status = 'completed';
+    steps[2].details = [`分析完成，筛选出 ${simplified.length} 个推荐候选`];
+    if (onProgress) onProgress(steps, 2);
+
+    steps[3].status = 'running';
+    if (onProgress) onProgress(steps, 3);
+    const withRoutes = await this.addRouteInformation(simplified, points, (progress) => {
+      steps[3].description = progress;
+      if (onProgress) onProgress(steps, 3);
+    });
+    steps[3].status = 'completed';
+    steps[3].details = ['路线计算完成'];
+    if (onProgress) onProgress(steps, 3);
+
+    // 排序并截断
+    steps[4].status = 'running';
+    if (onProgress) onProgress(steps, 4);
+    const ranked = this.fallbackRanking(withRoutes, keyword).slice(0, limit);
+    steps[4].status = 'completed';
+    steps[4].details = ['排序完成'];
+    if (onProgress) onProgress(steps, 4);
+
+    return ranked;
   }
 
   // 逐步推荐流程 - 用于显示每个步骤的真实执行过程

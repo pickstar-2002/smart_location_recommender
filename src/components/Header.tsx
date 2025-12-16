@@ -51,7 +51,7 @@ export const Header = ({ onApiKeyClick, onShowOnboarding }: HeaderProps) => {
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
-      <div className="px-4 sm:px-6 lg:px-8">
+      <div className="px-4 sm:px-6 lg:px-8 bg-white/90 backdrop-blur border-b border-gray-200 relative z-40">
         <div className="flex items-center justify-between h-14 sm:h-16">
           <div className="flex items-center min-w-0">
             <div className="flex-shrink-0">
@@ -63,7 +63,7 @@ export const Header = ({ onApiKeyClick, onShowOnboarding }: HeaderProps) => {
             </div>
           </div>
           
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <AIModelSelector 
               currentModel={selectedModel}
               onModelChange={(m) => { backendAIService.setModel(m); setSelectedModel(m); }}
@@ -71,14 +71,6 @@ export const Header = ({ onApiKeyClick, onShowOnboarding }: HeaderProps) => {
             {weatherInfo && (
               (() => {
                 const t = weatherInfo.weather || '';
-                const bg = t.includes('雨')
-                  ? 'bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-500'
-                  : t.includes('雪')
-                  ? 'bg-gradient-to-r from-cyan-500 via-blue-500 to-sky-600'
-                  : t.includes('云') || t.includes('阴')
-                  ? 'bg-gradient-to-r from-gray-500 via-slate-500 to-gray-700'
-                  : 'bg-gradient-to-r from-amber-400 via-orange-500 to-red-500';
-                const glow = bg;
                 const Icon = t.includes('雨')
                   ? CloudRain
                   : t.includes('雪')
@@ -87,36 +79,33 @@ export const Header = ({ onApiKeyClick, onShowOnboarding }: HeaderProps) => {
                   ? Cloud
                   : Sun;
                 return (
-                  <div className="relative">
-                    <div className={`flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm ${bg} text-white rounded-full shadow-lg ring-1 ring-white/20 transition-all duration-300 hover:scale-[1.03] hover:shadow-xl`}> 
-                      <Icon className="w-4 h-4 animate-pulse" />
-                      <span className="font-medium">{weatherInfo.weather}</span>
-                      <Thermometer className="w-4 h-4" />
-                      <span>{weatherInfo.temperature}℃</span>
-                      {weatherInfo.humidity && <><Droplets className="w-4 h-4" /><span>{weatherInfo.humidity}%</span></>}
-                      {(weatherInfo.winddirection || weatherInfo.windpower) && <><Wind className="w-4 h-4" /><span>{[weatherInfo.winddirection, weatherInfo.windpower].filter(Boolean).join(' ')}</span></>}
-                      {weatherInfo.city && <><MapPin className="w-4 h-4" /><span className="hidden sm:inline">{weatherInfo.city}</span></>}
-                    </div>
-                    <div className={`absolute inset-0 -z-10 blur-xl opacity-40 ${glow}`}></div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm bg-gray-100 text-gray-700 rounded-full border border-gray-200">
+                    <Icon className="w-4 h-4 text-gray-600" />
+                    <span className="font-medium">{weatherInfo.weather}</span>
+                    <Thermometer className="w-4 h-4 text-gray-600" />
+                    <span>{weatherInfo.temperature}℃</span>
+                    {weatherInfo.humidity && <><Droplets className="w-4 h-4 text-gray-600" /><span>{weatherInfo.humidity}%</span></>}
+                    {(weatherInfo.winddirection || weatherInfo.windpower) && <><Wind className="w-4 h-4 text-gray-600" /><span>{[weatherInfo.winddirection, weatherInfo.windpower].filter(Boolean).join(' ')}</span></>}
+                    {weatherInfo.city && <><MapPin className="w-4 h-4 text-gray-600" /><span className="hidden sm:inline">{weatherInfo.city}</span></>}
                   </div>
                 );
               })()
             )}
             <button
               onClick={() => onShowOnboarding?.()}
-              className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full border border-gray-200 transition-colors"
               title="新手引导"
             >
-              <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+              <HelpCircle className="w-4 h-4" />
             </button>
             
             
             <button
               onClick={onApiKeyClick}
-              className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full border border-gray-200 transition-colors"
               title="API密钥设置"
             >
-              <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+              <Settings className="w-4 h-4" />
             </button>
           </div>
         </div>

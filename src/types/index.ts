@@ -41,6 +41,7 @@ export interface SearchIntent {
   budget_max?: number;
   min_rating?: number;
   distance_km?: number;
+  group_size?: number;
   city?: string;
   area?: string;
   open_hours?: string;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, MapPin, Search, Crosshair, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, MapPin, Search, Crosshair, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { amapService } from '@/services/amapService';
 import { LocationPoint } from '@/types';
@@ -13,8 +13,8 @@ interface LocationInputProps {
 
 // 位置输入组件
 export const LocationInput = ({ className = '' }: LocationInputProps) => {
-  const { points, addPoint, removePoint, updatePoint, centerOnPoint } = useAppStore();
-  const [collapsed, setCollapsed] = useState(false);
+  const { points, addPoint, removePoint, updatePoint, centerOnPoint, clearPoints } = useAppStore();
+  const [collapsed, setCollapsed] = useState(true);
   const [addressInput, setAddressInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<Array<{ name: string; address: string; location: string; distance?: number }>>([]);
@@ -518,7 +518,6 @@ export const LocationInput = ({ className = '' }: LocationInputProps) => {
             
               {/* 位置状态提示 */}
               <div className="flex flex-wrap gap-1 mb-3">
-                <span className="text-xs text-gray-600 mr-1">提示：</span>
                 {isLocationLoading && (
                   <span className="text-xs text-blue-600 flex items-center">
                     <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-1"></div>
@@ -560,13 +559,16 @@ export const LocationInput = ({ className = '' }: LocationInputProps) => {
                 </>
               )}
             </button>
-            
-            {currentLocation && !isLocationLoading && (
-              <div className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md text-sm flex items-center">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
-                已定位
-              </div>
-            )}
+
+            <button
+              onClick={() => { clearPoints(); toast.success('已清除所有已选位置'); }}
+              disabled={points.length === 0}
+              className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center text-sm whitespace-nowrap transition-colors"
+              title="清除已选位置"
+            >
+              <X className="w-3 h-3 mr-1" />
+              清除已选位置
+            </button>
           </div>
       
 

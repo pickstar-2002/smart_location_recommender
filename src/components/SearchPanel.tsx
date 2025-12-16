@@ -1,12 +1,11 @@
-import { useState } from 'react';
-import { Search, MapPin, Shield } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, MapPin, Shield, ChevronLeft, RefreshCcw } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { recommendationService } from '@/services/recommendationService';
 import { Recommendation } from '@/types';
 import { toast } from 'sonner';
 import { StepLoader } from './LoadingSpinner';
 import { StarRating } from './StarRating';
-import { AIReasonProgress } from './AIReasonProgress';
 import { backendAIService } from '@/services/backendAiService';
 import { amapService } from '@/services/amapService';
 import { ImagePreviewModal } from './ImagePreviewModal';
@@ -14,14 +13,18 @@ import RecommendationProgress, { ProgressStep } from './RecommendationProgress';
 
 interface SearchPanelProps {
   className?: string;
+  onCollapse?: () => void;
 }
 
 // 搜索面板组件
-export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
+export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) => {
   const { points, searchKeyword, setSearchKeyword, recommendations, setRecommendations, setLoading, selectRecommendation, selectedRecommendation } = useAppStore();
   const [isSearching, setIsSearching] = useState(false);
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([]);
   const [showProgress, setShowProgress] = useState(false);
+  const [isGeneratingMore, setIsGeneratingMore] = useState(false);
+  const [hotKeywords, setHotKeywords] = useState<string[]>([]);
+  const [hotLoading, setHotLoading] = useState(false);
   
   // 动态卡片插入状态
   const [displayedRecommendations, setDisplayedRecommendations] = useState<Recommendation[]>([]); // 当前显示的推荐结果
@@ -39,6 +42,29 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
 
   const [previewImages, setPreviewImages] = useState<string[] | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number>(0);
+
+  const fetchHotKeywords = async () => {
+    try {
+      setHotLoading(true);
+      let city = '';
+      if (points && points.length > 0) {
+        try {
+          city = await amapService.getCityByCoordinate(points[0].lat, points[0].lng) || '';
+        } catch {}
+      }
+      const now = new Date();
+      const hour = now.getHours();
+      const time = hour >= 18 ? '晚上' : hour <= 6 ? '清晨' : '白天';
+      const keywords = await backendAIService.generateHotKeywords({ city, time });
+      setHotKeywords(keywords.slice(0, 6));
+    } finally {
+      setHotLoading(false);
+    }
+  };
+
+  const handleRefreshHot = () => {
+    if (!hotLoading) fetchHotKeywords();
+  };
 
   // 执行搜索 - 使用新的进度展示
   const handleSearch = async () => {
@@ -78,19 +104,14 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
         }
       );
       
-      // 设置待处理列表并开始逐条生成推荐理由
+      // 先展示推荐地点，再后台生成推荐理由
       setPendingRecommendations(results);
-      
+      setDisplayedRecommendations(results);
+      setRecommendations(results);
+
       if (results.length > 0) {
-        // 设置AI推荐理由生成进度
-        setAiReasonProgress({
-          isGenerating: true,
-          current: 0,
-          total: results.length,
-          currentPlace: ''
-        });
-        
-        await processRecommendationsOneByOne(results);
+        setAiReasonProgress({ isGenerating: true, current: 0, total: results.length, currentPlace: '' });
+        void generateCombinedInBackground(results);
       }
       
       toast.success(`找到 ${results.length} 个推荐地点`);
@@ -175,19 +196,86 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
     console.log('🎉 所有推荐结果处理完成');
   };
 
+  // 后台生成综合推荐理由：不阻塞列表展示，生成后插入到对应卡片的“AI综合推荐”区域
+  const generateCombinedInBackground = async (recs: Recommendation[]) => {
+    for (let i = 0; i < recs.length; i++) {
+      const rec = recs[i];
+      setAiReasonProgress(prev => ({ ...prev, current: i + 1, currentPlace: rec.poi.name }));
+      try {
+        // 间隔避免限流
+        if (i > 0) await new Promise(resolve => setTimeout(resolve, 800));
+        let weatherText: string | undefined;
+        try {
+          const city = rec.poi.cityname || rec.poi.pname || '';
+          const weather = await amapService.getWeatherByCityName(city);
+          if (weather) weatherText = `${weather.weather}，${weather.temperature}℃`;
+        } catch {}
+        const originName = (useAppStore.getState().selectedOriginPoint?.name) || (useAppStore.getState().points[0]?.name) || '出发点';
+        const combined = await backendAIService.generateCombinedRecommendation(rec, originName, searchKeyword.trim(), weatherText);
+
+        // 就地更新显示列表
+        setDisplayedRecommendations(prev => prev.map(item => item.poi.id === rec.poi.id ? { ...item, combinedRecommendation: combined } : item));
+        // 同步到全局store
+        {
+          const current = useAppStore.getState().recommendations;
+          const updated = current.map(item => item.poi.id === rec.poi.id ? { ...item, combinedRecommendation: combined } : item);
+          setRecommendations(updated);
+        }
+      } catch {}
+    }
+    setAiReasonProgress(prev => ({ ...prev, isGenerating: false }));
+  };
+
+  const handleGenerateMore = async () => {
+    if (isGeneratingMore || isSearching) return;
+    const totalLoaded = (useAppStore.getState().recommendations || []).length;
+    if (totalLoaded >= 20) {
+      toast.info('已达到20条上限');
+      return;
+    }
+
+    if (points.length === 0 || !searchKeyword.trim()) {
+      toast.error('请先添加位置点并输入关键词');
+      return;
+    }
+
+    setIsGeneratingMore(true);
+    try {
+      const existing = (useAppStore.getState().recommendations || []);
+      const existingIds = new Set(existing.map(r => r.poi.id));
+      const existingKeys = new Set(existing.map(r => `${r.poi.name}|${r.poi.address}`.trim()));
+      const results = await recommendationService.getMoreRecommendations(
+        points,
+        searchKeyword.trim(),
+        { ids: Array.from(existingIds), names: Array.from(existingKeys) },
+        5
+      );
+      const uniq = results.filter(r => !existingIds.has(r.poi.id) && !existingKeys.has(`${r.poi.name}|${r.poi.address}`.trim()));
+      const remain = 20 - totalLoaded;
+      const batch = uniq.slice(0, Math.min(5, Math.max(0, remain)));
+      if (batch.length === 0) {
+        toast.info('没有更多新推荐');
+      } else {
+        setAiReasonProgress({ isGenerating: true, current: 0, total: batch.length, currentPlace: '' });
+        // 先更新 pending 以使计数正确
+        setPendingRecommendations(prev => [...prev, ...batch]);
+        await processRecommendationsOneByOne(batch);
+        toast.success(`已追加 ${batch.length} 条推荐`);
+      }
+    } catch (error) {
+      console.error('生成更多失败:', error);
+      toast.error('生成更多失败，请稍后重试');
+    } finally {
+      setIsGeneratingMore(false);
+    }
+  };
+
 
 
   // 热门搜索关键词
-  const popularKeywords = [
-    '海底捞火锅',
-    'KTV',
-    '麻将馆',
-    '咖啡厅',
-    '电影院',
-    '餐厅',
-    '商场',
-    '公园'
-  ];
+  useEffect(() => {
+    fetchHotKeywords();
+  }, []);
 
   return (
     <div className={`bg-white rounded-lg shadow-md p-4 sm:p-6 ${className}`}>
@@ -206,18 +294,23 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
         </div>
       )}
       
-      <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center">
-        <Search className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-600" />
-        位置搜索
-      </h3>
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
+          <Search className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-600" />
+          位置搜索
+        </h3>
+        {onCollapse && (
+          <button
+            onClick={onCollapse}
+            className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+            title="最小化"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
+      </div>
 
-      {/* AI推荐理由生成进度指示器 */}
-      <AIReasonProgress 
-        current={aiReasonProgress.current}
-        total={aiReasonProgress.total}
-        currentPlace={aiReasonProgress.currentPlace}
-        isVisible={aiReasonProgress.isGenerating}
-      />
+      {/* AI推荐理由生成进度指示器已移除，改为卡片内loading占位 */}
 
       {/* 搜索输入 */}
       <div className="mb-4 sm:mb-6">
@@ -243,18 +336,34 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
         {/* AI模型选择器 */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           {/* 热门关键词 */}
-          <div className="flex flex-wrap gap-1">
-            <span className="text-xs text-gray-600 mr-1">示例：</span>
-            {popularKeywords.map(keyword => (
+          <div className="flex flex-wrap gap-1 items-center">
+            <span className="text-xs text-gray-600 mr-1">搜索热词：</span>
+            {hotLoading && (
+              <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded inline-flex items-center">
+                <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-1"></span>
+                生成中...
+              </span>
+            )}
+            {hotKeywords.slice(0, 6).map((kw, i) => (
               <button
-                key={keyword}
-                onClick={() => setSearchKeyword(keyword)}
+                key={`${kw}-${i}`}
+                onClick={() => setSearchKeyword(kw)}
                 className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
               >
-                {keyword}
+                {kw}
               </button>
             ))}
+            <button
+              onClick={handleRefreshHot}
+              disabled={hotLoading}
+              className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-400 transition-colors"
+              title="刷新热词"
+            >
+              <RefreshCcw className="w-3 h-3" />
+              刷新
+            </button>
           </div>
+          
         </div>
       </div>
 
@@ -392,7 +501,7 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
                   </div>
                   
                   {/* AI综合推荐生成状态指示器 */}
-                  {aiReasonProgress.isGenerating && !recommendation.combinedRecommendation && (
+                  {!recommendation.combinedRecommendation && (
                     <div className="flex items-center gap-2 mt-2">
                       <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
                       <span className="text-xs text-blue-600">AI综合推荐生成中...</span>
@@ -407,7 +516,7 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
                     <Shield className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 mr-2" />
                     <span className="font-semibold text-green-700">AI综合推荐</span>
                   </div>
-                  <div className="text-xs sm:text-sm leading-relaxed">{recommendation.combinedRecommendation}</div>
+                  <div className="text-xs sm:text-sm leading-relaxed break-words max-h-28 overflow-y-auto pr-1 transition-opacity duration-300 opacity-100">{recommendation.combinedRecommendation}</div>
                 </div>
               )}
             </div>
@@ -420,6 +529,26 @@ export const SearchPanel = ({ className = '' }: SearchPanelProps) => {
                 <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-blue-600"></div>
                 <span className="text-xs sm:text-sm">正在生成第 {displayedRecommendations.length + 1} 个推荐...</span>
               </div>
+            </div>
+          )}
+
+          {!aiReasonProgress.isGenerating && (
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs sm:text-sm text-gray-500">已加载 {displayedRecommendations.length}/20</span>
+              <button
+                onClick={handleGenerateMore}
+                disabled={isGeneratingMore || displayedRecommendations.length >= 20}
+                className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs sm:text-sm"
+              >
+                {isGeneratingMore ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
+                    生成中...
+                  </>
+                ) : (
+                  '生成更多'
+                )}
+              </button>
             </div>
           )}
         </div>

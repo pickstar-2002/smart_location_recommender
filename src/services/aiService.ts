@@ -29,6 +29,11 @@ class AIService {
         score += Math.min(20, place.rating * 4); // 5分满分得20分
       }
       
+      // 关键词匹配加权：完整短语优先
+      const full = keyword.trim();
+      if (full && place.name && place.name.includes(full)) {
+        score += 15; // 完整匹配显著提升
+      }
       // 确保分数在0-100范围内
       score = Math.max(0, Math.min(100, score));
       
@@ -174,11 +179,12 @@ class AIService {
       '加油站': ['中石化', '中石油', '加油', '能源']
     };
     
-    // 查找预定义的同义词
-    const extendedKeywords = synonymMap[keyword] || [];
+    const normalized = keyword.trim();
+    // 查找预定义的同义词（针对精确品类词），品牌词不拆分
+    const extendedKeywords = synonymMap[normalized] || [];
     
-    // 总是包含原关键词
-    const result = [keyword, ...extendedKeywords];
+    // 总是包含原关键词，保持原词在最前，避免被泛化词覆盖
+    const result = [normalized, ...extendedKeywords];
     
     console.log(`✅ 关键词扩展完成: ${result.join(', ')}`);
     return result;

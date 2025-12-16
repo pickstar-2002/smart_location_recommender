@@ -22,6 +22,7 @@ export const AMapComponent = ({ className = '', onSettingsClick }: AMapComponent
   const routesRef = useRef<Map<string, any>>(new Map());
   const routeAnimRef = useRef<{ marker: any | null; polyline: any | null; timer: any | null }>({ marker: null, polyline: null, timer: null });
   const [isLoading, setIsLoading] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
   const [loadingStartTime, setLoadingStartTime] = useState<number>(0);
   const [locationStatus, setLocationStatus] = useState<string>('正在获取位置...');
   const [routeStatus, setRouteStatus] = useState<{ show: boolean; origin?: string; dest?: string }>({ show: false });
@@ -42,14 +43,17 @@ export const AMapComponent = ({ className = '', onSettingsClick }: AMapComponent
 
   // 监听地图配置变化，实现定位功能
   useEffect(() => {
+    if (!mapReady) return;
     if (mapInstance.current && mapConfig.center) {
       const [lng, lat] = mapConfig.center;
-      mapInstance.current.setCenter([lng, lat]);
-      if (mapConfig.zoom) {
+      if (mapInstance.current?.setCenter) {
+        mapInstance.current.setCenter([lng, lat]);
+      }
+      if (mapConfig.zoom && mapInstance.current?.setZoom) {
         mapInstance.current.setZoom(mapConfig.zoom);
       }
     }
-  }, [mapConfig]);
+  }, [mapConfig, mapReady]);
 
   // 定位到指定点
   const centerMapOnPoint = (point: LocationPoint) => {
@@ -231,6 +235,7 @@ export const AMapComponent = ({ className = '', onSettingsClick }: AMapComponent
           zoom: mapConfig.zoom,
           resizeEnable: true
         });
+        setMapReady(true);
 
         // 添加点击事件
         mapInstance.current.on('click', async (e: any) => {
@@ -445,18 +450,27 @@ export const AMapComponent = ({ className = '', onSettingsClick }: AMapComponent
 
     return () => {
       if (mapInstance.current) {
-        mapInstance.current.destroy();
+        try {
+          mapInstance.current.destroy();
+        } catch {}
+        mapInstance.current = null;
       }
+      setMapReady(false);
     };
   }, []);
 
   // 更新地图中心
   useEffect(() => {
+    if (!mapReady) return;
     if (mapInstance.current) {
-      mapInstance.current.setCenter(mapConfig.center);
-      mapInstance.current.setZoom(mapConfig.zoom);
+      if (mapInstance.current?.setCenter) {
+        mapInstance.current.setCenter(mapConfig.center);
+      }
+      if (mapInstance.current?.setZoom) {
+        mapInstance.current.setZoom(mapConfig.zoom);
+      }
     }
-  }, [mapConfig]);
+  }, [mapConfig, mapReady]);
 
   // 更新标记点
   useEffect(() => {

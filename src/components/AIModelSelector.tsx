@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings } from 'lucide-react';
+import { Settings, CircleHelp } from 'lucide-react';
 import qwenLogo from '@/assets/qwen-color.svg';
 import deepseekLogo from '@/assets/deepseek-color.svg';
 import minimaxLogo from '@/assets/minimax-color.svg';
@@ -63,7 +63,7 @@ export const AIModelSelector = ({ currentModel, onModelChange }: AIModelSelector
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+        className="flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full border border-gray-200 transition-colors"
       >
         {currentModelInfo?.logo ? (
           <img src={currentModelInfo.logo} alt="logo" className="w-4 h-4" />
@@ -75,10 +75,20 @@ export const AIModelSelector = ({ currentModel, onModelChange }: AIModelSelector
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+        <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50" onMouseLeave={() => setIsOpen(false)}>
           <div className="p-3 border-b border-gray-100">
-            <h3 className="font-medium text-gray-800">选择本应用使用的AI模型</h3>
-            <p className="text-xs text-gray-600 mt-1">本应用使用AI为推荐结果生成简短理由，逐条生成并串行调用。</p>
+            <h3 className="font-medium text-gray-800 flex items-center">
+              <CircleHelp className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+              AI在本项目中的角色
+            </h3>
+            <ul className="mt-2 space-y-1 text-xs text-gray-700">
+              <li>• 解析用户意图（距离、预算、人数）并生成约束</li>
+              <li>• 扩展搜索词并展示，原始完整词优先、品牌优先</li>
+              <li>• 智能排序加权（完整短语匹配、交通时间综合）</li>
+              <li>• 为每条推荐生成约100字综合推荐理由（后台串行）</li>
+              <li>• 天气/时段信息融合到理由文案中</li>
+              <li>• 生成更多时避免重复并平滑追加到列表</li>
+            </ul>
           </div>
           
           <div className="p-2">
