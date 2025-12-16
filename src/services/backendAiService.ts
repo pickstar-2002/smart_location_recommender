@@ -286,7 +286,7 @@ class BackendAIService {
             content: `根据以下上下文生成10个面向大众的中文地点搜索热词，优先品牌与完整短语：\n城市: ${context?.city || '未知'}\n时间: ${context?.time || '白天'}\n天气: ${context?.weather || '晴'}\n示例(可参考但不要重复): ${(context?.examples || ['海底捞火锅','KTV','咖啡厅','电影院','烧烤店','自助餐','酒吧','麻辣烫','健身房','甜品店']).join('、')}\n\n要求：\n1) 只输出JSON数组，长度10，元素为字符串类别或品牌+类别的完整短语；\n2) 每项不超过8个字；\n3) 面向大众、高频可搜；\n4) 保留品牌完整性（如“海底捞火锅”而非“火锅”）。`
           }
         ],
-        temperature: 0.3,
+        temperature: 0.7,
         max_tokens: 200
       };
       const response = await fetch(`${this.baseURL}/chat/completions`, {
@@ -314,7 +314,24 @@ class BackendAIService {
       }
       throw new Error('not array');
     } catch {
-      return ['海底捞火锅','KTV','咖啡厅','电影院','烧烤店','串串香','自助餐','酒吧','健身房','甜品店'];
+      const base = ['海底捞火锅','KTV','咖啡厅','电影院','烧烤店','串串香','自助餐','酒吧','健身房','甜品店'];
+      const time = context?.time || '白天';
+      let extras: string[] = [];
+      if (time === '晚上') {
+        extras = ['夜宵','烧烤店','酒吧','串串'];
+      } else if (time === '清晨') {
+        extras = ['早餐店','豆浆店','包子铺'];
+      } else {
+        extras = ['商场','书店','甜品店'];
+      }
+      const merged: string[] = Array.from(new Set([...extras, ...base]));
+      for (let i = merged.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = merged[i];
+        merged[i] = merged[j];
+        merged[j] = tmp;
+      }
+      return merged.slice(0, 10);
     }
   }
 

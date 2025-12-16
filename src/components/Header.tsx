@@ -60,7 +60,7 @@ export const Header = ({ onApiKeyClick, onShowOnboarding }: HeaderProps) => {
                 <span className="hidden sm:inline">智能位置推荐助手</span>
                 <span className="sm:hidden">位置推荐</span>
               </h1>
-              <h1 className="text-[11px] sm:text-xs font-normal text-gray-500 ml-7 sm:ml-8">Developed by PickStar-2002</h1>
+              <h1 className="text-[11px] sm:text-xs font-normal text-gray-500 ml-7 sm:ml-8">Developed by pickstar-2002</h1>
             </div>
           </div>
           

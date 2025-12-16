@@ -56,7 +56,7 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
       const now = new Date();
       const hour = now.getHours();
       const time = hour >= 18 ? '晚上' : hour <= 6 ? '清晨' : '白天';
-      const keywords = await backendAIService.generateHotKeywords({ city, time });
+      const keywords = await backendAIService.generateHotKeywords({ city, time, examples: hotKeywords });
       setHotKeywords(keywords.slice(0, 6));
     } finally {
       setHotLoading(false);
@@ -338,31 +338,30 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           {/* 热门关键词 */}
           <div className="flex flex-wrap gap-1 items-center">
-            <span className="text-xs text-gray-600 mr-1">搜索热词：</span>
-            {hotLoading && (
-              <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded inline-flex items-center">
-                <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-1"></span>
-                生成中...
-              </span>
-            )}
-            {hotKeywords.slice(0, 6).map((kw, i) => (
-              <button
-                key={`${kw}-${i}`}
-                onClick={() => setSearchKeyword(kw)}
-                className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-              >
-                {kw}
-              </button>
-            ))}
+          <span className="text-xs text-gray-600 mr-1">搜索热词：</span>
+          <button
+            onClick={handleRefreshHot}
+            disabled={hotLoading}
+            className="ml-2 inline-flex items-center p-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-400 transition-colors"
+            title="刷新热词"
+          >
+            <RefreshCcw className="w-3 h-3" />
+          </button>
+          {hotLoading && (
+            <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded inline-flex items-center">
+              <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-1"></span>
+              生成中...
+            </span>
+          )}
+          {hotKeywords.slice(0, 6).map((kw, i) => (
             <button
-              onClick={handleRefreshHot}
-              disabled={hotLoading}
-              className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-400 transition-colors"
-              title="刷新热词"
+              key={`${kw}-${i}`}
+              onClick={() => setSearchKeyword(kw)}
+              className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
             >
-              <RefreshCcw className="w-3 h-3" />
-              刷新
+              {kw}
             </button>
+          ))}
           </div>
           
         </div>
