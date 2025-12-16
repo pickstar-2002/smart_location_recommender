@@ -176,15 +176,49 @@ class AIService {
       '超市': ['便利店', '商场', '购物', '杂货店'],
       '医院': ['诊所', '医疗', '健康', '体检中心'],
       '银行': ['ATM', '取款机', '金融', '理财'],
-      '加油站': ['中石化', '中石油', '加油', '能源']
+      '加油站': ['中石化', '中石油', '加油', '能源'],
+      '电影院': ['影城', '影院', '电影', 'IMAX'],
+      '影院': ['电影院', '影城', '电影'],
+      '影城': ['电影院', '影院', '电影'],
+      '自助': ['自助餐', '自助餐厅'],
+      '日式': ['日料', '日本料理', '和食'],
+      '日料': ['日本料理', '寿司', '刺身', '和食']
     };
     
     const normalized = keyword.trim();
     // 查找预定义的同义词（针对精确品类词），品牌词不拆分
     const extendedKeywords = synonymMap[normalized] || [];
     
+    // 基于常见组合词的智能扩展（无需AI）
+    const composites: string[] = [];
+    const contains = (w: string) => normalized.includes(w);
+    const pushUniq = (arr: string[], v: string) => { if (!arr.includes(v)) arr.push(v); };
+    const knownTokens = ['烤肉','烧烤','自助','自助餐','火锅','KTV','咖啡厅','餐厅','咖啡馆','日式','日料','日本料理','寿司','刺身','电影院','影院','影城'];
+    for (const t of knownTokens) {
+      if (contains(t)) pushUniq(composites, t);
+    }
+    if (contains('烤肉') && contains('自助')) {
+      pushUniq(composites, '烤肉自助');
+      pushUniq(composites, '自助烤肉');
+      pushUniq(composites, '烤肉自助餐');
+      pushUniq(composites, '自助餐 烤肉');
+    }
+    if (contains('烧烤') && contains('自助')) {
+      pushUniq(composites, '烧烤自助');
+      pushUniq(composites, '自助烧烤');
+      pushUniq(composites, '烧烤自助餐');
+    }
+    const jpQualifiers = ['日式','日料','日本料理'];
+    for (const q of jpQualifiers) {
+      if (contains(q) && contains('自助')) {
+        pushUniq(composites, `${q}自助`);
+        pushUniq(composites, `${q}自助餐`);
+        pushUniq(composites, `自助 ${q}`);
+      }
+    }
+
     // 总是包含原关键词，保持原词在最前，避免被泛化词覆盖
-    const result = [normalized, ...extendedKeywords];
+    const result = Array.from(new Set([normalized, ...composites, ...extendedKeywords]));
     
     console.log(`✅ 关键词扩展完成: ${result.join(', ')}`);
     return result;

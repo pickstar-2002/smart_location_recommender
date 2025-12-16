@@ -1,4 +1,4 @@
-# 智能位置推荐器
+# 智能位置推荐助手
 
 ![License](https://img.shields.io/badge/License-MIT-green.svg) ![Node](https://img.shields.io/badge/node-%3E%3D18.0-blue) ![React](https://img.shields.io/badge/react-18.3-blue?logo=react) ![Vite](https://img.shields.io/badge/vite-6.x-646CFF?logo=vite) ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?logo=typescript) 
 
@@ -8,6 +8,10 @@
 
 通过输入多个位置点与关键词，系统会进行周边检索、地理分析与路线计算，并结合评分与营业信息生成 Top 推荐，支持动态生成个性化推荐理由与路线解说。适用于朋友聚会、家庭用餐、团队活动、商务会面等场景。
 ![alt text](image/介绍图.png)
+
+## 主要使用的高德开放平台能力
+
+地图展示 / 地理编码 / 逆地理编码 / 路线规划 / POI 搜索 / 输入提示 / 实时位置 / IP 定位 / 天气查询 / MCP
 
 ## 功能
 

@@ -72,17 +72,38 @@ export class RecommendationService {
 
       const intent = await backendAIService.parseSearchIntent(keyword);
       const original = keyword.trim();
-      const baseKeywords = [original, ...((intent?.keywords ?? []) as string[])];
-      const expanded = await aiService.expandKeyword(original);
-      // 去重并保持原始关键词优先
+      const intentWords = ((intent?.keywords ?? []) as string[])
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(k => this._cleanKeyword(k))
+        .filter(Boolean);
+      const intentCategory = intent?.category ? [this._cleanKeyword(String(intent.category).trim())] : [];
+      let primary = [...intentWords, ...intentCategory].filter(Boolean);
+      if (primary.length === 0) primary = [original];
+      if (primary.length === 1 && primary[0] === original) {
+        const cats = this._extractCategoryCandidatesFromText(original);
+        if (cats.length > 0) primary = cats;
+      }
+      const expanded = await aiService.expandKeyword(primary[0]);
       const keywordsSet = new Set<string>();
       const keywords: string[] = [];
-      for (const kw of [...baseKeywords, ...expanded]) {
-        const k = kw.trim();
+      const blacklist = /[0-9]|元|以内|以上|预算|人均|km|公里|千米|米|m|帮我|找到|附近|之内|的/;
+      for (const kw of [...primary, ...expanded, original]) {
+        const k = this._cleanKeyword(kw);
         if (!k) continue;
+        if (blacklist.test(k)) continue;
         if (!keywordsSet.has(k)) {
           keywordsSet.add(k);
           keywords.push(k);
+        }
+      }
+      if (keywords.length === 0) {
+        const cats = this._extractCategoryCandidatesFromText(original);
+        if (cats.length > 0) {
+          keywords.push(...cats.slice(0, 3));
+        } else {
+          const k = this._cleanKeyword(original);
+          if (k) keywords.push(k);
         }
       }
       const constraints: string[] = [];
@@ -102,11 +123,17 @@ export class RecommendationService {
       steps[2].status = 'running';
       if (onProgress) onProgress(steps, 2);
       
-      const radius = typeof intent?.distance_km === 'number' ? Math.round(intent!.distance_km! * 1000) : 5000;
+      const range = this._extractBudgetRangeFromText(original);
+      const budgetMax = typeof intent?.budget_max === 'number' ? intent!.budget_max! : (range?.max ?? this._extractBudgetFromText(original));
+      const budgetMin = range?.min;
+      const distanceKm = typeof intent?.distance_km === 'number' ? intent!.distance_km! : this._extractDistanceFromText(original) ?? undefined;
+      const radius = typeof distanceKm === 'number' ? Math.round(distanceKm * 1000) : 5000;
       const uniqueResults = await this.searchNearbyPlaces(points, keywords, {
         radiusMeters: radius,
         minRating: typeof intent?.min_rating === 'number' ? intent!.min_rating! : undefined,
-        budgetMax: typeof intent?.budget_max === 'number' ? intent!.budget_max! : undefined
+        budgetMin: typeof budgetMin === 'number' ? budgetMin : undefined,
+        budgetMax: typeof budgetMax === 'number' ? budgetMax : undefined,
+        maxDistanceMeters: typeof distanceKm === 'number' ? Math.round(distanceKm * 1000) : undefined
       });
       steps[2].status = 'completed';
       steps[2].details = [`共找到 ${uniqueResults.length} 个候选地点（已按约束筛选）`];
@@ -187,13 +214,17 @@ export class RecommendationService {
     if (onProgress) onProgress(steps, 0);
     const intent = await backendAIService.parseSearchIntent(keyword).catch(() => null);
     const original = keyword.trim();
-    const baseKeywords = [original, ...((intent?.keywords ?? []) as string[])];
-    const expanded = await aiService.expandKeyword(original).catch(() => []);
+    const intentWords = ((intent?.keywords ?? []) as string[]).map(s => s.trim()).filter(Boolean);
+    const intentCategory = intent?.category ? [String(intent?.category).trim()] : [];
+    const primary = [...intentWords, ...intentCategory];
+    const expanded = await aiService.expandKeyword(primary[0] || original).catch(() => []);
     const set = new Set<string>();
     const allKeywords: string[] = [];
-    for (const k of [...baseKeywords, ...expanded]) {
+    const blacklist = /[0-9]|元|以内|以上|预算|人均/;
+    for (const k of [...primary, ...expanded, original]) {
       const t = k.trim();
       if (!t) continue;
+      if (blacklist.test(t)) continue;
       if (!set.has(t)) {
         set.add(t);
         allKeywords.push(t);
@@ -210,12 +241,18 @@ export class RecommendationService {
     // 搜索与筛选（扩大半径）
     steps[1].status = 'running';
     if (onProgress) onProgress(steps, 1);
-    const baseRadius = typeof intent?.distance_km === 'number' ? Math.round(intent!.distance_km! * 1000) : 5000;
+    const range = this._extractBudgetRangeFromText(original);
+    const budgetMin = range?.min;
+    const budgetMax = typeof intent?.budget_max === 'number' ? intent!.budget_max! : range?.max;
+    const baseDistanceKm = typeof intent?.distance_km === 'number' ? intent!.distance_km! : this._extractDistanceFromText(original) ?? undefined;
+    const baseRadius = typeof baseDistanceKm === 'number' ? Math.round(baseDistanceKm * 1000) : 5000;
     const radius = Math.round(baseRadius * 1.3);
     const uniqueResults = await this.searchNearbyPlaces(points, moreKeywords, {
       radiusMeters: radius,
       minRating: typeof intent?.min_rating === 'number' ? intent!.min_rating! : undefined,
-      budgetMax: typeof intent?.budget_max === 'number' ? intent!.budget_max! : undefined
+      budgetMin: typeof budgetMin === 'number' ? budgetMin : undefined,
+      budgetMax: typeof budgetMax === 'number' ? budgetMax : undefined,
+      maxDistanceMeters: typeof baseDistanceKm === 'number' ? Math.round(baseDistanceKm * 1000) : undefined
     });
     // 去重（ID与名称+地址）
     const filtered = uniqueResults.filter(r => {
@@ -273,7 +310,7 @@ export class RecommendationService {
   async searchNearbyPlaces(
     points: LocationPoint[],
     keywords: string[],
-    options?: { radiusMeters?: number; minRating?: number; budgetMax?: number }
+    options?: { radiusMeters?: number; minRating?: number; budgetMin?: number; budgetMax?: number; minDistanceMeters?: number; maxDistanceMeters?: number }
   ): Promise<SearchResult[]> {
     try {
       const centerPoint = amapService.calculateCenter(points);
@@ -281,7 +318,12 @@ export class RecommendationService {
       
       const radius = options?.radiusMeters ?? 5000;
       for (const kw of keywords.slice(0, 3)) {
-        const places = await amapService.searchAround(centerPoint, kw, radius);
+        const places = await amapService.searchAround(centerPoint, kw, radius, {
+          budgetMin: options?.budgetMin,
+          budgetMax: options?.budgetMax,
+          minRating: options?.minRating,
+          requireCost: typeof options?.budgetMin === 'number' || typeof options?.budgetMax === 'number'
+        });
         const results = places.map(place => amapService.convertToSearchResult(place));
         allResults = [...allResults, ...results];
       }
@@ -291,13 +333,74 @@ export class RecommendationService {
       if (typeof options?.minRating === 'number') {
         filtered = filtered.filter(r => (r.rating ?? 0) >= (options!.minRating as number));
       }
-      if (typeof options?.budgetMax === 'number') {
+      if (typeof options?.budgetMin === 'number' || typeof options?.budgetMax === 'number') {
         filtered = filtered.filter(r => {
           if (!r.cost) return true;
           const num = parseFloat(String(r.cost).replace(/[^0-9.]/g, ''));
           if (isNaN(num)) return true;
-          return num <= (options!.budgetMax as number);
+          if (typeof options?.budgetMin === 'number' && num < (options!.budgetMin as number)) return false;
+          if (typeof options?.budgetMax === 'number' && num > (options!.budgetMax as number)) return false;
+          return true;
         });
+      }
+      if (typeof options?.minDistanceMeters === 'number' || typeof options?.maxDistanceMeters === 'number') {
+        filtered = filtered.filter(r => {
+          const d = r.distance;
+          if (typeof d !== 'number' || isNaN(d)) return true;
+          if (typeof options?.minDistanceMeters === 'number' && d < (options!.minDistanceMeters as number)) return false;
+          if (typeof options?.maxDistanceMeters === 'number' && d > (options!.maxDistanceMeters as number)) return false;
+          return true;
+        });
+      }
+      if (filtered.length === 0) {
+        const seed = keywords[0] || '';
+        let alt: string[] = [];
+        try {
+          alt = await aiService.expandKeyword(seed);
+        } catch {}
+        const altKeywords = Array.from(new Set([...(alt || []), ...keywords])).slice(0, 5);
+        const steps = [Math.max(radius, 3000), Math.max(radius, 5000), Math.max(radius, 10000)];
+        for (const r of steps) {
+          let passResults: SearchResult[] = [];
+          for (const kw of altKeywords.slice(0, 3)) {
+            const places = await amapService.searchAround(centerPoint, kw, r, {
+              budgetMin: options?.budgetMin,
+              budgetMax: options?.budgetMax,
+              minRating: options?.minRating,
+              requireCost: typeof options?.budgetMin === 'number' || typeof options?.budgetMax === 'number'
+            });
+            const results = places.map(place => amapService.convertToSearchResult(place));
+            passResults = [...passResults, ...results];
+          }
+          const u2 = this.deduplicateResults(passResults);
+          let f2 = u2;
+          if (typeof options?.minRating === 'number') {
+            f2 = f2.filter(r => (r.rating ?? 0) >= (options!.minRating as number));
+          }
+          if (typeof options?.budgetMin === 'number' || typeof options?.budgetMax === 'number') {
+            f2 = f2.filter(r => {
+              if (!r.cost) return true;
+              const num = parseFloat(String(r.cost).replace(/[^0-9.]/g, ''));
+              if (isNaN(num)) return true;
+              if (typeof options?.budgetMin === 'number' && num < (options!.budgetMin as number)) return false;
+              if (typeof options?.budgetMax === 'number' && num > (options!.budgetMax as number)) return false;
+              return true;
+            });
+          }
+          if (typeof options?.minDistanceMeters === 'number' || typeof options?.maxDistanceMeters === 'number') {
+            f2 = f2.filter(r => {
+              const d = r.distance;
+              if (typeof d !== 'number' || isNaN(d)) return true;
+              if (typeof options?.minDistanceMeters === 'number' && d < (options!.minDistanceMeters as number)) return false;
+              if (typeof options?.maxDistanceMeters === 'number' && d > (options!.maxDistanceMeters as number)) return false;
+              return true;
+            });
+          }
+          if (f2.length > 0) {
+            filtered = f2;
+            break;
+          }
+        }
       }
       console.log(`周边搜索完成: 找到 ${filtered.length} 个候选地点（筛选后）`);
       return filtered;
@@ -541,6 +644,83 @@ export class RecommendationService {
     }
 
     return updatedRecommendations;
+  }
+
+  private _extractBudgetFromText(text: string): number | undefined {
+    const t = text || '';
+    const hasBudgetToken = /(元|RMB|块|人民币|人均|预算|消费|价格)/.test(t);
+    if (!hasBudgetToken) return undefined;
+    const m = t.match(/(\d{1,5})(?:\s*)?(?:元|RMB|块|人民币)?(?:\s*)?(?:以内|以下|不超过)?/);
+    if (!m) return undefined;
+    const n = parseFloat(m[1]);
+    if (isNaN(n)) return undefined;
+    return n;
+  }
+
+  private _extractDistanceFromText(text: string): number | undefined {
+    const t = text || '';
+    const m1 = t.match(/(\d+(?:\.\d+)?)(?:\s*)?(km|公里|千米)/i);
+    if (m1) {
+      const n = parseFloat(m1[1]);
+      if (!isNaN(n)) return n;
+    }
+    const m2 = t.match(/(\d+(?:\.\d+)?)(?:\s*)?(m|米)/i);
+    if (m2) {
+      const n = parseFloat(m2[1]);
+      if (!isNaN(n)) return n / 1000;
+    }
+    return undefined;
+  }
+
+  private _extractCategoryCandidatesFromText(text: string): string[] {
+    const t = (text || '').toLowerCase();
+    const dict = ['电影院','影城','影院','咖啡厅','咖啡馆','火锅','烧烤','烤肉','自助','自助餐','日本料理','日式','日料','KTV','酒店','餐厅','超市'];
+    const found: string[] = [];
+    for (const w of dict) {
+      if (text.includes(w)) found.push(w);
+    }
+    if (found.length > 0) return Array.from(new Set(found));
+    const parts = text.split(/[，。,.；;\s]/).filter(Boolean);
+    const last = parts[parts.length - 1] || '';
+    const cleaned = this._cleanKeyword(last);
+    return cleaned ? [cleaned] : [];
+  }
+
+  private _cleanKeyword(k: string): string {
+    const s = String(k || '').replace(/\s+/g, '');
+    const stop = [/帮我/g, /找到/g, /附近/g, /之内/g, /以内/g, /以上/g, /的/g, /km/gi, /公里/g, /千米/g, /米/g];
+    let out = s;
+    for (const re of stop) out = out.replace(re, '');
+    return out.trim();
+  }
+
+  private _extractBudgetRangeFromText(text: string): { min?: number; max?: number } | undefined {
+    const t = text || '';
+    const hasBudgetToken = /(元|RMB|块|人民币|人均|预算|消费|价格)/.test(t);
+    const hasDistanceToken = /(km|公里|千米|米|m)/i.test(t);
+    const rangeMatch = t.match(/(\d{1,5})\s*(?:-|~|～|到|至|—|——)\s*(\d{1,5})/);
+    if (rangeMatch && (hasBudgetToken || !hasDistanceToken)) {
+      const a = parseFloat(rangeMatch[1]);
+      const b = parseFloat(rangeMatch[2]);
+      if (!isNaN(a) && !isNaN(b)) {
+        const min = Math.min(a, b);
+        const max = Math.max(a, b);
+        return { min, max };
+      }
+    }
+    if (hasBudgetToken) {
+      const upMatch = t.match(/(\d{1,5})(?:\s*)?(?:元|RMB|块|人民币)?(?:\s*)?(?:以内|以下|不超过)/);
+      if (upMatch) {
+        const n = parseFloat(upMatch[1]);
+        if (!isNaN(n)) return { max: n };
+      }
+      const downMatch = t.match(/(\d{1,5})(?:\s*)?(?:元|RMB|块|人民币)?(?:\s*)?(?:以上|不低于|不少于)/);
+      if (downMatch) {
+        const n = parseFloat(downMatch[1]);
+        if (!isNaN(n)) return { min: n };
+      }
+    }
+    return undefined;
   }
 
   // 计算地理中心点

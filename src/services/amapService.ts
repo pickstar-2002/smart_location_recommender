@@ -277,7 +277,12 @@ class AMapService {
   }
 
   // 周边搜索
-  async searchAround(center: { lat: number; lng: number }, keyword: string, radius = 3000): Promise<AMapPlace[]> {
+  async searchAround(
+    center: { lat: number; lng: number },
+    keyword: string,
+    radius = 3000,
+    options?: { budgetMin?: number; budgetMax?: number; minRating?: number; requireCost?: boolean }
+  ): Promise<AMapPlace[]> {
     const url = `${this.baseUrl}/place/around?key=${this.key}&keywords=${encodeURIComponent(keyword)}&location=${center.lng},${center.lat}&radius=${radius}&sortrule=distance&output=json`;
     
     try {
@@ -285,7 +290,7 @@ class AMapService {
       const data = await response.json();
       
       if (data.status === '1' && data.pois) {
-        return data.pois.map((poi: any) => ({
+        let places: AMapPlace[] = data.pois.map((poi: any) => ({
           id: poi.id,
           name: poi.name,
           address: poi.address,
@@ -302,6 +307,31 @@ class AMapService {
           cityname: poi.cityname,
           adname: poi.adname
         }));
+
+        // 先按评分过滤（可选）
+        if (typeof options?.minRating === 'number') {
+          places = places.filter(p => {
+            const r = p.biz_ext?.rating ? parseFloat(p.biz_ext.rating) : undefined;
+            return typeof r === 'number' ? r >= (options!.minRating as number) : false;
+          });
+        }
+
+        // 人均消费过滤（在POI返回阶段执行）
+        if (typeof options?.budgetMin === 'number' || typeof options?.budgetMax === 'number') {
+          const min = typeof options?.budgetMin === 'number' ? (options!.budgetMin as number) : undefined;
+          const max = typeof options?.budgetMax === 'number' ? (options!.budgetMax as number) : undefined;
+          places = places.filter(p => {
+            const raw = p.biz_ext?.cost;
+            if (typeof raw !== 'string') return options?.requireCost ? false : true;
+            const num = parseFloat(String(raw).replace(/[^0-9.]/g, ''));
+            if (isNaN(num)) return options?.requireCost ? false : true;
+            if (typeof min === 'number' && num < min) return false;
+            if (typeof max === 'number' && num > max) return false;
+            return true;
+          });
+        }
+
+        return places;
       }
       return [];
     } catch (error) {
