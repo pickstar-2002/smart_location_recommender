@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, MapPin, Shield, ChevronLeft, RefreshCcw } from 'lucide-react';
+import { Search, MapPin, Shield, ChevronLeft, RefreshCcw, HelpCircle } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { recommendationService } from '@/services/recommendationService';
 import { Recommendation } from '@/types';
@@ -299,6 +299,13 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
         <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center">
           <Search className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-600" />
           位置搜索
+          <button
+            onClick={() => toast.info('支持自然语言输入，并支持预算区间（如100-200/100以内）与距离区间（如2km以内/500m-2km）。')}
+            className="ml-2 p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+            title="输入支持预算/距离区间"
+          >
+            <HelpCircle className="w-3 h-3" />
+          </button>
         </h3>
         {onCollapse && (
           <button
@@ -320,7 +327,7 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
             type="text"
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
-            placeholder="用一句话描述你想找的地方（如：预算300的KTV、离地铁近的咖啡厅）"
+            placeholder="找一个预算100以内，距离2km以内的川菜馆"
             className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
           />
@@ -345,14 +352,8 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
             className="ml-2 inline-flex items-center p-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-400 transition-colors"
             title="刷新热词"
           >
-            <RefreshCcw className="w-3 h-3" />
+            <RefreshCcw className={`w-3 h-3 ${hotLoading ? 'animate-spin' : ''}`} />
           </button>
-          {hotLoading && (
-            <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded inline-flex items-center">
-              <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-1"></span>
-              生成中...
-            </span>
-          )}
           {hotKeywords.slice(0, 6).map((kw, i) => (
             <button
               key={`${kw}-${i}`}

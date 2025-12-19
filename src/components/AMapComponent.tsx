@@ -568,14 +568,19 @@ export const AMapComponent = ({ className = '', onSettingsClick }: AMapComponent
       }
     });
 
-    // 添加新标记（用户通过搜索或输入添加的位置点）
+    // 添加或更新标记（用户通过搜索或输入添加的位置点）
     points.forEach(point => {
       if (!window.AMap.Marker) return;
       
       // 检查是否已存在对应的点击标记
       const clickMarkerId = `click_${point.id}`;
-      if (markersRef.current.has(clickMarkerId)) {
-        return; // 跳过，因为点击标记已经存在
+      const existingClickMarker = markersRef.current.get(clickMarkerId);
+      if (existingClickMarker) {
+        const match = point.name.match(/位置(\d+)/);
+        const number = match ? parseInt(match[1]) : 1;
+        existingClickMarker.setTitle(`点击位置 - ${point.name}`);
+        existingClickMarker.setIcon(createNumberedIcon(number, '#FF6347'));
+        return;
       }
       
       // 提取数字序号（从"位置1"、"位置2"等中提取数字）

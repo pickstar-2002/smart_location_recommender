@@ -28,7 +28,7 @@ class BackendAIService {
 
   constructor() {
     this.baseURL = 'https://api-inference.modelscope.cn/v1';
-    this.currentModel = 'qwen';
+    this.currentModel = 'deepseek-v3.2';
   }
 
   // 设置当前使用的AI模型
@@ -280,10 +280,10 @@ class BackendAIService {
       const body: any = {
         model: (this.AI_MODELS[this.currentModel] || this.AI_MODELS.qwen).name,
         messages: [
-          { role: 'system', content: '你是一个中文地点搜索热词推荐助手，请只输出JSON数组，不要额外文字。' },
+          { role: 'system', content: '你是一个中文地点搜索热词推荐助手，请只输出JSON数组，不要额外文字。倾向吃喝玩乐类（如KTV、海底捞火锅、麻将馆、台球室、酒吧、咖啡厅、烧烤店、串串香、自助餐、电影院）。' },
           {
             role: 'user',
-            content: `根据以下上下文生成10个面向大众的中文地点搜索热词，优先品牌与完整短语：\n城市: ${context?.city || '未知'}\n时间: ${context?.time || '白天'}\n天气: ${context?.weather || '晴'}\n示例(可参考但不要重复): ${(context?.examples || ['海底捞火锅','KTV','咖啡厅','电影院','烧烤店','自助餐','酒吧','麻辣烫','健身房','甜品店']).join('、')}\n\n要求：\n1) 只输出JSON数组，长度10，元素为字符串类别或品牌+类别的完整短语；\n2) 每项不超过8个字；\n3) 面向大众、高频可搜；\n4) 保留品牌完整性（如“海底捞火锅”而非“火锅”）。`
+            content: `根据以下上下文生成10个面向大众的中文地点搜索热词，优先品牌与完整短语，倾向吃喝玩乐类：\n城市: ${context?.city || '未知'}\n时间: ${context?.time || '白天'}\n天气: ${context?.weather || '晴'}\n示例(可参考但不要重复): ${(context?.examples || ['海底捞火锅','KTV','咖啡厅','电影院','烧烤店','串串香','自助餐','酒吧','麻将馆','台球室']).join('、')}\n\n要求：\n1) 只输出JSON数组，长度10，元素为字符串类别或品牌+类别的完整短语；\n2) 每项不超过8个字；\n3) 面向大众、高频可搜；\n4) 保留品牌完整性（如“海底捞火锅”而非“火锅”）；\n5) 倾向吃喝玩乐类（如KTV、海底捞火锅、麻将馆、台球室、酒吧、咖啡厅、烧烤店、串串香、自助餐、电影院）。`
           }
         ],
         temperature: 0.7,
@@ -310,19 +310,36 @@ class BackendAIService {
         throw new Error('json parse failed');
       }
       if (Array.isArray(parsed)) {
-        return parsed.map((s: any) => String(s).trim()).filter((s: string) => !!s).slice(0, 10);
+        const basePreferred = ['海底捞火锅','KTV','麻将馆','台球室','酒吧','咖啡厅','烧烤店','串串香','自助餐','电影院'];
+        const nightBoost = ['酒吧','KTV','台球室','夜宵'];
+        const dayBoost = ['咖啡厅','海底捞火锅','自助餐','烧烤店'];
+        const time = (context?.time || '').includes('晚') ? '晚上' : (context?.time || '白天');
+        const preferred = time === '晚上' ? [...nightBoost, ...basePreferred] : [...dayBoost, ...basePreferred];
+
+        const tags = ['火锅','海底捞','KTV','麻将','台球','酒吧','咖啡','烧烤','串串','自助','电影院'];
+        const cleaned: string[] = parsed.map((s: any) => String(s).trim()).filter((s: string) => !!s);
+        const eatPlay = cleaned.filter(s => tags.some(t => s.includes(t)));
+        const pool = Array.from(new Set([...preferred, ...eatPlay]));
+        // 轻随机：打乱顺序，保证每次刷新有变化
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          const t = pool[i];
+          pool[i] = pool[j];
+          pool[j] = t;
+        }
+        return pool.slice(0, 10);
       }
       throw new Error('not array');
     } catch {
-      const base = ['海底捞火锅','KTV','咖啡厅','电影院','烧烤店','串串香','自助餐','酒吧','健身房','甜品店'];
+      const base = ['海底捞火锅','KTV','咖啡厅','电影院','烧烤店','串串香','自助餐','酒吧','麻将馆','台球室'];
       const time = context?.time || '白天';
       let extras: string[] = [];
       if (time === '晚上') {
-        extras = ['夜宵','烧烤店','酒吧','串串'];
+        extras = ['夜宵','烧烤店','酒吧','串串','台球室'];
       } else if (time === '清晨') {
         extras = ['早餐店','豆浆店','包子铺'];
       } else {
-        extras = ['商场','书店','甜品店'];
+        extras = ['甜品店','奶茶店','桌游吧'];
       }
       const merged: string[] = Array.from(new Set([...extras, ...base]));
       for (let i = merged.length - 1; i > 0; i--) {

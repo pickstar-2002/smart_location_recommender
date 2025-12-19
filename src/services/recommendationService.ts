@@ -26,8 +26,8 @@ export class RecommendationService {
       },
       {
         id: 'keywords',
-        title: '扩展搜索关键词',
-        description: '正在生成相关搜索词...',
+        title: '解析搜索意图',
+        description: '正在提取核心关键词...',
         status: 'pending'
       },
       {
@@ -84,27 +84,11 @@ export class RecommendationService {
         const cats = this._extractCategoryCandidatesFromText(original);
         if (cats.length > 0) primary = cats;
       }
-      const expanded = await aiService.expandKeyword(primary[0]);
-      const keywordsSet = new Set<string>();
-      const keywords: string[] = [];
-      const blacklist = /[0-9]|元|以内|以上|预算|人均|km|公里|千米|米|m|帮我|找到|附近|之内|的/;
-      for (const kw of [...primary, ...expanded, original]) {
-        const k = this._cleanKeyword(kw);
-        if (!k) continue;
-        if (blacklist.test(k)) continue;
-        if (!keywordsSet.has(k)) {
-          keywordsSet.add(k);
-          keywords.push(k);
-        }
-      }
+      const coreKeyword = this._chooseSingleKeyword(primary, original);
+      const keywords: string[] = coreKeyword ? [coreKeyword] : [];
       if (keywords.length === 0) {
-        const cats = this._extractCategoryCandidatesFromText(original);
-        if (cats.length > 0) {
-          keywords.push(...cats.slice(0, 3));
-        } else {
-          const k = this._cleanKeyword(original);
-          if (k) keywords.push(k);
-        }
+        const k = this._cleanKeyword(original);
+        if (k) keywords.push(k);
       }
       const constraints: string[] = [];
       if (typeof intent?.distance_km === 'number') constraints.push(`距离≤${intent!.distance_km}km`);
@@ -112,9 +96,9 @@ export class RecommendationService {
       if (typeof intent?.min_rating === 'number') constraints.push(`评分≥${intent!.min_rating}`);
       if (typeof intent?.group_size === 'number') constraints.push(`人数=${intent!.group_size}人`);
       steps[1].status = 'completed';
-      steps[1].description = `扩展搜索词：${keywords.join('、')}`;
+      steps[1].description = `核心关键词：${keywords[0] || ''}`;
       steps[1].details = [
-        `扩展关键词: ${keywords.join(', ')}`,
+        `核心关键词: ${keywords[0] || ''}`,
         constraints.length ? `约束条件: ${constraints.join('，')}` : '约束条件: 无'
       ];
       if (onProgress) onProgress(steps, 1);
@@ -214,25 +198,15 @@ export class RecommendationService {
     if (onProgress) onProgress(steps, 0);
     const intent = await backendAIService.parseSearchIntent(keyword).catch(() => null);
     const original = keyword.trim();
-    const intentWords = ((intent?.keywords ?? []) as string[]).map(s => s.trim()).filter(Boolean);
-    const intentCategory = intent?.category ? [String(intent?.category).trim()] : [];
+    const intentWords = ((intent?.keywords ?? []) as string[])
+      .map(s => s.trim())
+      .filter(Boolean)
+      .map(k => this._cleanKeyword(k))
+      .filter(Boolean);
+    const intentCategory = intent?.category ? [this._cleanKeyword(String(intent?.category).trim())] : [];
     const primary = [...intentWords, ...intentCategory];
-    const expanded = await aiService.expandKeyword(primary[0] || original).catch(() => []);
-    const set = new Set<string>();
-    const allKeywords: string[] = [];
-    const blacklist = /[0-9]|元|以内|以上|预算|人均/;
-    for (const k of [...primary, ...expanded, original]) {
-      const t = k.trim();
-      if (!t) continue;
-      if (blacklist.test(t)) continue;
-      if (!set.has(t)) {
-        set.add(t);
-        allKeywords.push(t);
-      }
-    }
-    // 取后半段作为“更多”的搜索词，如果不足则仍使用全部
-    const sliceStart = Math.floor(allKeywords.length / 2);
-    const moreKeywords = allKeywords.slice(sliceStart).length > 0 ? allKeywords.slice(sliceStart) : allKeywords;
+    const coreKeyword = this._chooseSingleKeyword(primary, original);
+    const moreKeywords = coreKeyword ? [coreKeyword] : [this._cleanKeyword(original) || original];
     steps[0].status = 'completed';
     steps[0].description = `扩展搜索词：${moreKeywords.join('、')}`;
     steps[0].details = [`扩展关键词: ${moreKeywords.join(', ')}`];
@@ -692,6 +666,24 @@ export class RecommendationService {
     let out = s;
     for (const re of stop) out = out.replace(re, '');
     return out.trim();
+  }
+
+  private _chooseSingleKeyword(candidates: string[], original: string): string {
+    const arr = (candidates || []).map(c => this._cleanKeyword(c)).filter(Boolean);
+    if (arr.length === 0) {
+      return this._cleanKeyword(original) || original.trim();
+    }
+    const suffixes = ['馆','店','厅','影城','影院','KTV','酒店','餐厅','咖啡馆','自助餐'];
+    const score = (s: string) => {
+      let sc = s.length;
+      for (const suf of suffixes) if (s.includes(suf)) sc += 5;
+      // phrase-like boost (contains category words)
+      const catHints = ['川菜','日本料理','自助','火锅','烧烤','咖啡','电影院'];
+      for (const h of catHints) if (s.includes(h)) sc += 3;
+      return sc;
+    };
+    arr.sort((a, b) => score(b) - score(a));
+    return arr[0];
   }
 
   private _extractBudgetRangeFromText(text: string): { min?: number; max?: number } | undefined {
