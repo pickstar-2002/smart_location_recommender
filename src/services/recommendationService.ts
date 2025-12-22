@@ -319,10 +319,12 @@ export class RecommendationService {
       }
       if (typeof options?.minDistanceMeters === 'number' || typeof options?.maxDistanceMeters === 'number') {
         filtered = filtered.filter(r => {
-          const d = r.distance;
-          if (typeof d !== 'number' || isNaN(d)) return true;
-          if (typeof options?.minDistanceMeters === 'number' && d < (options!.minDistanceMeters as number)) return false;
-          if (typeof options?.maxDistanceMeters === 'number' && d > (options!.maxDistanceMeters as number)) return false;
+          const avgD = points.length > 0
+            ? points.reduce((sum, p) => sum + this.calculateDistance(p, r.location), 0) / points.length
+            : r.distance;
+          if (typeof avgD !== 'number' || isNaN(avgD)) return true;
+          if (typeof options?.minDistanceMeters === 'number' && avgD < (options!.minDistanceMeters as number)) return false;
+          if (typeof options?.maxDistanceMeters === 'number' && avgD > (options!.maxDistanceMeters as number)) return false;
           return true;
         });
       }
@@ -363,10 +365,12 @@ export class RecommendationService {
           }
           if (typeof options?.minDistanceMeters === 'number' || typeof options?.maxDistanceMeters === 'number') {
             f2 = f2.filter(r => {
-              const d = r.distance;
-              if (typeof d !== 'number' || isNaN(d)) return true;
-              if (typeof options?.minDistanceMeters === 'number' && d < (options!.minDistanceMeters as number)) return false;
-              if (typeof options?.maxDistanceMeters === 'number' && d > (options!.maxDistanceMeters as number)) return false;
+              const avgD = points.length > 0
+                ? points.reduce((sum, p) => sum + this.calculateDistance(p, r.location), 0) / points.length
+                : r.distance;
+              if (typeof avgD !== 'number' || isNaN(avgD)) return true;
+              if (typeof options?.minDistanceMeters === 'number' && avgD < (options!.minDistanceMeters as number)) return false;
+              if (typeof options?.maxDistanceMeters === 'number' && avgD > (options!.maxDistanceMeters as number)) return false;
               return true;
             });
           }
@@ -648,7 +652,7 @@ export class RecommendationService {
 
   private _extractCategoryCandidatesFromText(text: string): string[] {
     const t = (text || '').toLowerCase();
-    const dict = ['电影院','影城','影院','咖啡厅','咖啡馆','火锅','烧烤','烤肉','自助','自助餐','日本料理','日式','日料','KTV','酒店','餐厅','超市'];
+    const dict = ['电影院','影城','影院','咖啡厅','咖啡馆','火锅','烧烤','烤肉','自助','自助餐','日本料理','日式','日料','KTV','酒店','餐厅','超市','川菜','川菜馆'];
     const found: string[] = [];
     for (const w of dict) {
       if (text.includes(w)) found.push(w);
