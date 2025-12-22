@@ -422,21 +422,25 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
                     <span className="w-4 h-4 sm:w-5 sm:h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-medium mr-2 flex-shrink-0">
                       {index + 1}
                     </span>
-                    <h5 className="font-semibold text-gray-800 text-xs sm:text-sm truncate">{recommendation.poi.name}</h5>
+                    <h5 className="font-semibold text-gray-800 text-xs sm:text-sm truncate">{recommendation.poi.name || '--'}</h5>
                   </div>
                   
                   <div className="text-xs text-gray-600 mb-1 truncate">
                     <MapPin className="w-3 h-3 inline mr-1" />
-                    {recommendation.poi.address}
+                    {recommendation.poi.address || '--'}
                   </div>
 
                   <div className="flex items-center gap-2 sm:gap-3 text-xs text-gray-600 mb-1 flex-wrap">
-                    {recommendation.poi.rating && (
-                      <div className="flex items-center">
-                        <StarRating score={recommendation.poi.rating * 20} size="sm" />
-                        <span className="ml-1 text-gray-600">{recommendation.poi.rating}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center">
+                      {typeof recommendation.poi.rating === 'number' && recommendation.poi.rating > 0 ? (
+                        <>
+                          <StarRating score={recommendation.poi.rating * 20} size="sm" />
+                          <span className="ml-1 text-gray-600">{recommendation.poi.rating}</span>
+                        </>
+                      ) : (
+                        <span className="text-gray-400">--</span>
+                      )}
+                    </div>
                     <div className="text-xs text-blue-600 font-medium">
                       平均📏 {(((recommendation.pointDistances && recommendation.pointDistances.length > 0)
                         ? (recommendation.pointDistances.reduce((sum, pd) => sum + (pd.distance ?? 0), 0) / recommendation.pointDistances.length)
@@ -450,53 +454,42 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
 
                   
 
-                  {(
-                    recommendation.poi.phone || recommendation.poi.tel || recommendation.poi.tags?.length || recommendation.poi.cost || recommendation.poi.pname || recommendation.poi.cityname || recommendation.poi.adname || recommendation.averageReachableTime || (recommendation.poi.photos && recommendation.poi.photos.length)
-                  ) && (
-                    <div className="space-y-1 text-xs text-gray-700">
-                      {(recommendation.poi.phone || recommendation.poi.tel) && (
-                        <div className="flex items-start">
-                          <span className="mr-1">📞</span>
-                          <span className="font-medium">{recommendation.poi.phone || recommendation.poi.tel}</span>
-                        </div>
-                      )}
-                      {(recommendation.poi.pname || recommendation.poi.cityname || recommendation.poi.adname) && (
-                        <div className="flex items-start">
-                          <span className="mr-1">🏙️</span>
-                          <span className="font-medium">{[recommendation.poi.pname, recommendation.poi.cityname, recommendation.poi.adname].filter(Boolean).join(' · ')}</span>
-                        </div>
-                      )}
-                      <div className="flex items-start">
-                        <span className="mr-1">💰</span>
-                        <span className="font-medium">{recommendation.poi.cost ? recommendation.poi.cost : '/'}</span>
-                      </div>
-                      {recommendation.poi.tags && recommendation.poi.tags.length > 0 && (
-                        <div className="flex items-start">
-                          <span className="mr-1">🏷️</span>
-                          <span className="font-medium">{recommendation.poi.tags.slice(0, 3).join('、')}</span>
-                        </div>
-                      )}
-                      
-                      {recommendation.poi.photos && recommendation.poi.photos.length > 0 && (
-                        <div className="flex gap-2 mt-1">
-                          {recommendation.poi.photos.slice(0, 2).map((url, i) => (
-                            <img
-                              key={i}
-                              src={url}
-                              alt="photo"
-                              className="w-12 h-9 sm:w-16 sm:h-12 rounded border border-gray-200 object-cover cursor-zoom-in"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPreviewImages(recommendation.poi.photos);
-                                const idx = recommendation.poi.photos.indexOf(url);
-                                setPreviewIndex(idx >= 0 ? idx : 0);
-                              }}
-                            />
-                          ))}
-                        </div>
-                      )}
+                  <div className="space-y-1 text-xs text-gray-700">
+                    <div className="flex items-start">
+                      <span className="mr-1">📞</span>
+                      <span className="font-medium">{(() => { const v1 = (recommendation.poi as any).phone; const v2 = (recommendation.poi as any).tel; const val = v1 ?? v2; const s = typeof val === 'string' ? val.trim() : String(val ?? '').trim(); return s || '--'; })()}</span>
                     </div>
-                  )}
+                    <div className="flex items-start">
+                      <span className="mr-1">🏙️</span>
+                      <span className="font-medium">{([recommendation.poi.pname, recommendation.poi.cityname, recommendation.poi.adname].filter(Boolean).join(' · ')) || '--'}</span>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="mr-1">💰</span>
+                      <span className="font-medium">{(() => { const v = recommendation.poi.cost as any; const s = typeof v === 'string' ? v.trim() : String(v ?? '').trim(); return s || '--'; })()}</span>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="mr-1">🏷️</span>
+                      <span className="font-medium">{(recommendation.poi.tags && recommendation.poi.tags.length > 0) ? recommendation.poi.tags.slice(0, 3).join('、') : '--'}</span>
+                    </div>
+                    {recommendation.poi.photos && recommendation.poi.photos.length > 0 && (
+                      <div className="flex gap-2 mt-1">
+                        {recommendation.poi.photos.slice(0, 2).map((url, i) => (
+                          <img
+                            key={i}
+                            src={url}
+                            alt="photo"
+                            className="w-12 h-9 sm:w-16 sm:h-12 rounded border border-gray-200 object-cover cursor-zoom-in"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewImages(recommendation.poi.photos);
+                              const idx = recommendation.poi.photos.indexOf(url);
+                              setPreviewIndex(idx >= 0 ? idx : 0);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   
                   {recommendation.pointDistances && recommendation.pointDistances.length > 0 && (
