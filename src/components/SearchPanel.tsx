@@ -466,12 +466,10 @@ export const SearchPanel = ({ className = '', onCollapse }: SearchPanelProps) =>
                           <span className="font-medium">{[recommendation.poi.pname, recommendation.poi.cityname, recommendation.poi.adname].filter(Boolean).join(' · ')}</span>
                         </div>
                       )}
-                      {recommendation.poi.cost && (
-                        <div className="flex items-start">
-                          <span className="mr-1">💰</span>
-                          <span className="font-medium">{recommendation.poi.cost}</span>
-                        </div>
-                      )}
+                      <div className="flex items-start">
+                        <span className="mr-1">💰</span>
+                        <span className="font-medium">{recommendation.poi.cost ? recommendation.poi.cost : '/'}</span>
+                      </div>
                       {recommendation.poi.tags && recommendation.poi.tags.length > 0 && (
                         <div className="flex items-start">
                           <span className="mr-1">🏷️</span>
