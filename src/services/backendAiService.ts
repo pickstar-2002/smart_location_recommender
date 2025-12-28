@@ -3,10 +3,18 @@ import { Recommendation } from '@/types';
 // 支持的AI模型类型
 type AIModel =
   | 'qwen'
+  | 'qwen2.5-7b'
+  | 'qwen2.5-72b'
+  | 'qwen2.5-coder-32b'
+  | 'qwen2.5-vl-72b'
+  | 'qwen3-8b'
+  | 'qwen3-32b'
+  | 'internlm'
   | 'deepseek-v3.2'
-  | 'deepseek-v3.1'
   | 'deepseek-r1-0528'
+  | 'deepseek-r1-distill-qwen-32b'
   | 'minimax-m1-80k'
+  | 'minimax-m2.1'
   | 'qwen-coder-480b'
   | 'qwen-vl-235b'
   | 'glm-4.6v';
@@ -16,11 +24,24 @@ class BackendAIService {
   private baseURL: string;
   private currentModel: AIModel;
   private AI_MODELS: Record<AIModel, { name: string }> = {
+    // 通义千问系列
     qwen: { name: 'Qwen/Qwen3-235B-A22B-Instruct-2507' },
+    'qwen2.5-7b': { name: 'Qwen/Qwen2.5-7B-Instruct' },
+    'qwen2.5-72b': { name: 'Qwen/Qwen2.5-72B-Instruct' },
+    'qwen2.5-coder-32b': { name: 'Qwen/Qwen2.5-Coder-32B-Instruct' },
+    'qwen2.5-vl-72b': { name: 'Qwen/Qwen2.5-VL-72B-Instruct' },
+    'qwen3-8b': { name: 'Qwen/Qwen3-8B' },
+    'qwen3-32b': { name: 'Qwen/Qwen3-32B' },
+    // 书生系列
+    internlm: { name: 'OpenGVLab/InternVL3_5-241B-A28B' },
+    // DeepSeek 系列
     'deepseek-v3.2': { name: 'deepseek-ai/DeepSeek-V3.2' },
-    'deepseek-v3.1': { name: 'deepseek-ai/DeepSeek-V3.1' },
     'deepseek-r1-0528': { name: 'deepseek-ai/DeepSeek-R1-0528' },
+    'deepseek-r1-distill-qwen-32b': { name: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B' },
+    // MiniMax 系列
     'minimax-m1-80k': { name: 'MiniMax/MiniMax-M1-80k' },
+    'minimax-m2.1': { name: 'MiniMax/MiniMax-M2.1' },
+    // 专用模型
     'qwen-coder-480b': { name: 'Qwen/Qwen3-Coder-480B-A35B-Instruct' },
     'qwen-vl-235b': { name: 'Qwen/Qwen3-VL-235B-A22B-Instruct' },
     'glm-4.6v': { name: 'ZhipuAI/GLM-4.6V' }
@@ -46,13 +67,18 @@ class BackendAIService {
     const models: AIModel[] = [
       this.currentModel,
       'qwen',
+      'qwen2.5-7b',
+      'qwen2.5-72b',
+      'qwen3-8b',
+      'qwen3-32b',
+      'internlm',
       'deepseek-v3.2',
-      'deepseek-v3.1',
       'deepseek-r1-0528',
+      'deepseek-r1-distill-qwen-32b',
       'minimax-m1-80k',
+      'minimax-m2.1',
       'qwen-coder-480b',
-      'qwen-vl-235b',
-      'glm-4.6v'
+      'qwen-vl-235b'
     ].filter((v, i, a) => a.indexOf(v as AIModel) === i) as AIModel[];
 
     for (let idx = 0; idx < models.length; idx++) {
@@ -121,10 +147,16 @@ class BackendAIService {
     const models: AIModel[] = [
       this.currentModel,
       'qwen',
+      'qwen2.5-7b',
+      'qwen2.5-72b',
+      'qwen3-8b',
+      'qwen3-32b',
+      'internlm',
       'deepseek-v3.2',
-      'deepseek-v3.1',
       'deepseek-r1-0528',
+      'deepseek-r1-distill-qwen-32b',
       'minimax-m1-80k',
+      'minimax-m2.1',
       'glm-4.6v'
     ].filter((v, i, a) => a.indexOf(v as AIModel) === i) as AIModel[];
 
@@ -194,10 +226,16 @@ class BackendAIService {
     const models: AIModel[] = [
       this.currentModel,
       'qwen',
+      'qwen2.5-7b',
+      'qwen2.5-72b',
+      'qwen3-8b',
+      'qwen3-32b',
+      'internlm',
       'deepseek-v3.2',
-      'deepseek-v3.1',
       'deepseek-r1-0528',
+      'deepseek-r1-distill-qwen-32b',
       'minimax-m1-80k',
+      'minimax-m2.1',
       'glm-4.6v'
     ].filter((v, i, a) => a.indexOf(v as AIModel) === i) as AIModel[];
 

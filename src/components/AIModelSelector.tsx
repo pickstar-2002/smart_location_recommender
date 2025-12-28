@@ -8,20 +8,36 @@ import zhipuLogo from '@/assets/zhipu-color.svg';
 interface AIModelSelectorProps {
   currentModel:
     | 'qwen'
+    | 'qwen2.5-7b'
+    | 'qwen2.5-72b'
+    | 'qwen2.5-coder-32b'
+    | 'qwen2.5-vl-72b'
+    | 'qwen3-8b'
+    | 'qwen3-32b'
+    | 'internlm'
     | 'deepseek-v3.2'
-    | 'deepseek-v3.1'
     | 'deepseek-r1-0528'
+    | 'deepseek-r1-distill-qwen-32b'
     | 'minimax-m1-80k'
+    | 'minimax-m2.1'
     | 'qwen-coder-480b'
     | 'qwen-vl-235b'
     | 'glm-4.6v';
   onModelChange: (
     model:
       | 'qwen'
+      | 'qwen2.5-7b'
+      | 'qwen2.5-72b'
+      | 'qwen2.5-coder-32b'
+      | 'qwen2.5-vl-72b'
+      | 'qwen3-8b'
+      | 'qwen3-32b'
+      | 'internlm'
       | 'deepseek-v3.2'
-      | 'deepseek-v3.1'
       | 'deepseek-r1-0528'
+      | 'deepseek-r1-distill-qwen-32b'
       | 'minimax-m1-80k'
+      | 'minimax-m2.1'
       | 'qwen-coder-480b'
       | 'qwen-vl-235b'
       | 'glm-4.6v'
@@ -35,10 +51,18 @@ export const AIModelSelector = ({ currentModel, onModelChange }: AIModelSelector
   const models: Array<{
     id:
       | 'qwen'
+      | 'qwen2.5-7b'
+      | 'qwen2.5-72b'
+      | 'qwen2.5-coder-32b'
+      | 'qwen2.5-vl-72b'
+      | 'qwen3-8b'
+      | 'qwen3-32b'
+      | 'internlm'
       | 'deepseek-v3.2'
-      | 'deepseek-v3.1'
       | 'deepseek-r1-0528'
+      | 'deepseek-r1-distill-qwen-32b'
       | 'minimax-m1-80k'
+      | 'minimax-m2.1'
       | 'qwen-coder-480b'
       | 'qwen-vl-235b'
       | 'glm-4.6v';
@@ -47,14 +71,27 @@ export const AIModelSelector = ({ currentModel, onModelChange }: AIModelSelector
     logo?: string;
     color: string;
   }> = [
-    { id: 'qwen', name: '通义千问', description: '中文文案生成', logo: qwenLogo, color: 'text-blue-600' },
+    // 通义千问系列
+    { id: 'qwen', name: '通义千问 235B', description: '中文文案生成', logo: qwenLogo, color: 'text-blue-600' },
+    { id: 'qwen2.5-7b', name: 'Qwen 2.5 7B', description: '轻量快速响应', logo: qwenLogo, color: 'text-blue-600' },
+    { id: 'qwen2.5-72b', name: 'Qwen 2.5 72B', description: '高性能模型', logo: qwenLogo, color: 'text-blue-600' },
+    { id: 'qwen2.5-coder-32b', name: 'Qwen 2.5 Coder', description: '代码理解', logo: qwenLogo, color: 'text-blue-600' },
+    { id: 'qwen2.5-vl-72b', name: 'Qwen 2.5 VL 72B', description: '多模态理解', logo: qwenLogo, color: 'text-blue-600' },
+    { id: 'qwen3-8b', name: 'Qwen 3 8B', description: '新一代轻量', logo: qwenLogo, color: 'text-blue-600' },
+    { id: 'qwen3-32b', name: 'Qwen 3 32B', description: '新一代中量', logo: qwenLogo, color: 'text-blue-600' },
     { id: 'qwen-coder-480b', name: 'Qwen Coder 480B', description: '代码理解与生成', logo: qwenLogo, color: 'text-blue-600' },
     { id: 'qwen-vl-235b', name: 'Qwen VL 235B', description: '多模态文本图像', logo: qwenLogo, color: 'text-blue-600' },
+    // 书生系列
+    { id: 'internlm', name: 'InternVL 3.5', description: '多模态视觉', color: 'text-emerald-600' },
+    // DeepSeek 系列
     { id: 'deepseek-v3.2', name: 'DeepSeek V3.2', description: '支持中文与推理', logo: deepseekLogo, color: 'text-purple-600' },
-    { id: 'deepseek-v3.1', name: 'DeepSeek V3.1', description: '通用对话与生成', logo: deepseekLogo, color: 'text-purple-600' },
-    { id: 'deepseek-r1-0528', name: 'DeepSeek R1-0528', description: '思维链与深度推理', logo: deepseekLogo, color: 'text-purple-600' },
-    { id: 'minimax-m1-80k', name: 'MiniMax M1-80k', description: '80k上下文窗口', logo: minimaxLogo, color: 'text-rose-600' },
-    { id: 'glm-4.6v', name: 'GLM-4.6V', description: '多模态与中文能力', logo: zhipuLogo, color: 'text-sky-600' }
+    { id: 'deepseek-r1-0528', name: 'DeepSeek R1', description: '思维链与深度推理', logo: deepseekLogo, color: 'text-purple-600' },
+    { id: 'deepseek-r1-distill-qwen-32b', name: 'DeepSeek R1 Distill', description: '推理优化版本', logo: deepseekLogo, color: 'text-purple-600' },
+    // MiniMax 系列
+    { id: 'minimax-m1-80k', name: 'MiniMax M1', description: '80k上下文窗口', logo: minimaxLogo, color: 'text-rose-600' },
+    { id: 'minimax-m2.1', name: 'MiniMax M2.1', description: '新版MiniMax', logo: minimaxLogo, color: 'text-rose-600' },
+    // 其他模型
+    { id: 'glm-4.6v', name: 'GLM-4.6V', description: '多模态与中文', logo: zhipuLogo, color: 'text-sky-600' }
   ];
 
   const currentModelInfo = models.find(m => m.id === currentModel);
