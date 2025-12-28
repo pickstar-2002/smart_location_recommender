@@ -7,26 +7,63 @@ const DEFAULT_MODELSCOPE_API_KEY = 'ms-85ed98e9-1a8e-41e5-8215-ee563559d069'
 
 // 支持的AI模型配置
 const AI_MODELS = {
+  // 通义千问系列
   qwen: {
     name: 'Qwen/Qwen3-235B-A22B-Instruct-2507',
     description: '通义千问大模型，适合中文推荐文案生成'
   },
+  'qwen2.5-7b': {
+    name: 'Qwen/Qwen2.5-7B-Instruct',
+    description: 'Qwen 2.5 7B，轻量快速响应'
+  },
+  'qwen2.5-72b': {
+    name: 'Qwen/Qwen2.5-72B-Instruct',
+    description: 'Qwen 2.5 72B，高性能模型'
+  },
+  'qwen2.5-coder-32b': {
+    name: 'Qwen/Qwen2.5-Coder-32B-Instruct',
+    description: 'Qwen 2.5 Coder，代码理解与生成'
+  },
+  'qwen2.5-vl-72b': {
+    name: 'Qwen/Qwen2.5-VL-72B-Instruct',
+    description: 'Qwen 2.5 VL 72B，多模态理解'
+  },
+  'qwen3-8b': {
+    name: 'Qwen/Qwen3-8B',
+    description: 'Qwen 3 8B，新一代轻量模型'
+  },
+  'qwen3-32b': {
+    name: 'Qwen/Qwen3-32B',
+    description: 'Qwen 3 32B，新一代中量模型'
+  },
+  // 书生系列
+  internlm: {
+    name: 'OpenGVLab/InternVL3_5-241B-A28B',
+    description: 'InternVL 3.5，多模态视觉理解'
+  },
+  // DeepSeek 系列
   'deepseek-v3.2': {
     name: 'deepseek-ai/DeepSeek-V3.2',
     description: 'DeepSeek V3.2，支持中文与推理'
   },
-  'deepseek-v3.1': {
-    name: 'deepseek-ai/DeepSeek-V3.1',
-    description: 'DeepSeek V3.1，通用对话与生成'
-  },
   'deepseek-r1-0528': {
     name: 'deepseek-ai/DeepSeek-R1-0528',
-    description: 'DeepSeek R1-0528，思维链与深度推理'
+    description: 'DeepSeek R1，思维链与深度推理'
   },
+  'deepseek-r1-distill-qwen-32b': {
+    name: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B',
+    description: 'DeepSeek R1 Distill，推理优化版本'
+  },
+  // MiniMax 系列
   'minimax-m1-80k': {
     name: 'MiniMax/MiniMax-M1-80k',
-    description: 'MiniMax M1-80k，大上下文窗口'
+    description: 'MiniMax M1，80k大上下文窗口'
   },
+  'minimax-m2.1': {
+    name: 'MiniMax/MiniMax-M2.1',
+    description: 'MiniMax M2.1，新版MiniMax模型'
+  },
+  // 专用模型
   'qwen-coder-480b': {
     name: 'Qwen/Qwen3-Coder-480B-A35B-Instruct',
     description: 'Qwen Coder 480B，代码理解与生成'
